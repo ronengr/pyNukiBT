@@ -1,0 +1,139 @@
+import enum
+BLE_SMARTLOCK_PAIRING_SERVICE = "a92ee100-5501-11e4-916c-0800200c9a66"
+BLE_SMARTLOCK_PAIRING_CHAR =    "a92ee101-5501-11e4-916c-0800200c9a66"
+BLE_SMARTLOCK_SERVICE =         "a92ee200-5501-11e4-916c-0800200c9a66"
+BLE_SMARTLOCK_CHAR =            "a92ee202-5501-11e4-916c-0800200c9a66"
+
+BLE_OPENER_PAIRING_SERVICE =    "a92ae100-5501-11e4-916c-0800200c9a66"
+BLE_OPENER_CHAR =               "a92ae202-5501-11e4-916c-0800200c9a66"
+BLE_OPENER_PAIRING_CHAR =       "a92ae101-5501-11e4-916c-0800200c9a66"
+
+
+class BridgeType(enum.Enum):
+    HW = 1
+    SW = 2
+
+
+class DeviceType(enum.Enum):
+    SMARTLOCK_1_2 = 0
+    OPENER = 2
+    SMARTDOOR = 3
+    SMARTLOCK_3 = 4
+
+
+class DoorsensorState(enum.Enum):
+    UNAVAILABLE = 0
+    DEACTIVATED = 1
+    DOOR_CLOSED = 2
+    DOOR_OPENED = 3
+    DOOR_STATE_UNKOWN = 4
+    CALIBRATING = 5
+    UNCALIBRATED = 16
+    REMOVED = 240
+    UNKOWN = 255
+
+
+class StatusCode(enum.Enum):
+    COMPLETED = 0
+    ACCEPTED = 1
+
+class LockActionCompletionStatus(enum.Enum):
+    SUCCESS = 0x00
+    MOTOR_BLOCKED = 0x01
+    CANCELED = 0x02
+    TOO_RECENT = 0x03
+    BUSY = 0x04
+    LOW_MOTOR_VOLTAGE = 0x05
+    CLUTCH_FAILURE = 0x06
+    MOTOR_POWER_FAILURE = 0x07
+    INCOMPLETE = 0x08
+    OTHER_ERROR = 0xFE
+    UNKNOWN = 0xFF
+
+class NukiCommand(enum.Enum):
+    REQUEST_DATA = 0x0001
+    PUBLIC_KEY = 0x0003
+    CHALLENGE = 0x0004
+    AUTH_AUTHENTICATOR = 0x0005
+    AUTH_DATA = 0x0006
+    AUTH_ID = 0x0007
+    KEYTURNER_STATES = 0x000C
+    LOCK_ACTION = 0x000D
+    STATUS = 0x000E
+    ERROR_REPORT = 0x0012
+    REQUEST_CONFIG = 0x0014
+    CONFIG = 0x0015
+    AUTH_ID_CONFIRM = 0x001E
+    VERIFY_SECURITY_PIN = 0x0020
+    REQUEST_LOG_ENTRIES = 0x0031
+    LOG_ENTRY = 0x0032
+    LOG_ENTRY_COUNT = 0x0033
+
+class NukiState(enum.Enum):
+    UNINITIALIZED = 0x00
+    PAIRING_MODE = 0x01
+    DOOR_MODE = 0x02
+    CONTINUOUS_MODE = 0x03
+    MAINTENANCE_MODE = 0x04
+
+
+class LockState(enum.Enum):
+    UNCALIBRATED = 0x00
+    LOCKED = 0x01
+    UNLOCKING = 0x02
+    UNLOCKED = 0x03
+    LOCKING = 0x04
+    UNLATCHED = 0x05
+    UNLOCKED_LOCK_N_GO = 0x06
+    UNLATCHING = 0x07
+    CALIBRATION = 0xFC
+    BOOT_RUN = 0xFD
+    MOTOR_BLOCKED = 0xFE
+    UNDEFINED = 0xFF
+
+
+class OpenerState(enum.Enum):
+    UNCALIBRATED = 0x00
+    LOCKED = 0x01
+    RTO_ACTIVE = 0x03
+    OPEN = 0x05
+    OPENING = 0x07
+    UNDEFINED = 0xFF
+
+
+class NukiAction(enum.Enum):
+    NONE = 0x00
+    UNLOCK = 0x01
+    LOCK = 0x02
+    UNLATCH = 0x03
+    LOCK_N_GO = 0x04
+    LOCK_N_GO_UNLATCH = 0x05
+    FULL_LOCK = 0x06
+    FOB_ACTION_1 = 0x81
+    FOB_ACTION_2 = 0x82
+    FOB_ACTION_3 = 0x83
+
+class NukiActionTrigger(enum.Enum):
+    SYSTEM = 0x00
+    MANUAL = 0x01
+    BUTTON = 0x02
+    AUTOMATIC = 0x03
+    AUTO_LOCK = 0x06
+
+class NukiClientType(enum.Enum):
+    APP = 0x00
+    BRIDGE = 0x01
+    FOB = 0x02
+    KEYPAD = 0x03
+
+class LogEntryType(enum.Enum):
+    LOGGING_ENABLED_DISABLED = 0x01
+    LOCK_ACTION = 0x02
+    CALIBRATION = 0x03
+    INITIALIZATION_RUN = 0x04
+    KEYPAD_ACTION = 0x05
+    DOOR_SENSOR = 0x06
+    DOOR_SENSOR_LOGGING_ENABLED_DISABLED = 0x07
+
+class PairingError(enum.Enum):
+    NOT_PAIRING = 0x10
