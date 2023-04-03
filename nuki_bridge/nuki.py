@@ -16,12 +16,13 @@ from nacl.bindings.crypto_box import crypto_box_beforenm
 from bleak import BleakScanner, BleakClient
 
 BLE_SMARTLOCK_PAIRING_SERVICE = "a92ee100-5501-11e4-916c-0800200c9a66"
-BLE_SMARTLOCK_CHAR = "a92ee202-5501-11e4-916c-0800200c9a66"
-BLE_SMARTLOCK_PAIRING_CHAR = 'a92ee101-5501-11e4-916c-0800200c9a66'
+BLE_SMARTLOCK_PAIRING_CHAR =    "a92ee101-5501-11e4-916c-0800200c9a66"
+BLE_SMARTLOCK_SERVICE =         "a92ee200-5501-11e4-916c-0800200c9a66"
+BLE_SMARTLOCK_CHAR =            "a92ee202-5501-11e4-916c-0800200c9a66"
 
-BLE_OPENER_PAIRING_SERVICE = "a92ae100-5501-11e4-916c-0800200c9a66"
-BLE_OPENER_CHAR = "a92ae202-5501-11e4-916c-0800200c9a66"
-BLE_OPENER_PAIRING_CHAR = 'a92ae101-5501-11e4-916c-0800200c9a66'
+BLE_OPENER_PAIRING_SERVICE =    "a92ae100-5501-11e4-916c-0800200c9a66"
+BLE_OPENER_CHAR =               "a92ae202-5501-11e4-916c-0800200c9a66"
+BLE_OPENER_PAIRING_CHAR =       "a92ae101-5501-11e4-916c-0800200c9a66"
 
 
 class BridgeType(enum.Enum):
@@ -52,6 +53,18 @@ class StatusCode(enum.Enum):
     COMPLETED = 0
     ACCEPTED = 1
 
+class LockActionCompletionStatus(enum.Enum):
+    SUCCESS = 0x00
+    MOTOR_BLOCKED = 0x01
+    CANCELED = 0x02
+    TOO_RECENT = 0x03
+    BUSY = 0x04
+    LOW_MOTOR_VOLTAGE = 0x05
+    CLUTCH_FAILURE = 0x06
+    MOTOR_POWER_FAILURE = 0x07
+    INCOMPLETE = 0x08
+    OTHER_ERROR = 0xFE
+    UNKNOWN = 0xFF
 
 class NukiCommand(enum.Enum):
     REQUEST_DATA = 0x0001
@@ -67,7 +80,10 @@ class NukiCommand(enum.Enum):
     REQUEST_CONFIG = 0x0014
     CONFIG = 0x0015
     AUTH_ID_CONFIRM = 0x001E
-
+    VERIFY_SECURITY_PIN = 0x0020
+    REQUEST_LOG_ENTRIES = 0x0031
+    LOG_ENTRY = 0x0032
+    LOG_ENTRY_COUNT = 0x0033
 
 class NukiState(enum.Enum):
     UNINITIALIZED = 0x00
@@ -113,6 +129,12 @@ class NukiAction(enum.Enum):
     FOB_ACTION_2 = 0x82
     FOB_ACTION_3 = 0x83
 
+class NukiActionTrigger(enum.Enum):
+    SYSTEM = 0x00
+    MANUAL = 0x01
+    BUTTON = 0x02
+    AUTOMATIC = 0x03
+    AUTO_LOCK = 0x06
 
 class NukiClientType(enum.Enum):
     APP = 0x00
@@ -120,6 +142,14 @@ class NukiClientType(enum.Enum):
     FOB = 0x02
     KEYPAD = 0x03
 
+class LogEntryType(enum.Enum):
+    LOGGING_ENABLED_DISABLED = 0x01
+    LOCK_ACTION = 0x02
+    CALIBRATION = 0x03
+    INITIALIZATION_RUN = 0x04
+    KEYPAD_ACTION = 0x05
+    DOOR_SENSOR = 0x06
+    DOOR_SENSOR_LOGGING_ENABLED_DISABLED = 0x07
 
 class PairingError(enum.Enum):
     NOT_PAIRING = 0x10
@@ -407,7 +437,11 @@ class Nuki:
 
     async def _parse_command(self, data):
         command, = struct.unpack("<H", data[:2])
-        command = NukiCommand(command)
+        try:
+            command = NukiCommand(command)
+        except ValueError:
+            logger.error(f'unknown command {command}')
+            return None, None
         # crc = data[-2:]
         data = data[2:-2]
         logger.debug(f"Parsing command: {command}, data: {data}")
@@ -419,7 +453,7 @@ class Nuki:
             values = struct.unpack("<BBBHBBBBBHBBBBBBBH", data[:21])
             return command, {"nuki_state": NukiState(values[0]),
                              "lock_state": LockState(values[1]),
-                             "trigger": values[2],
+                             "trigger": NukiActionTrigger(values[2]),
                              "current_time": datetime.datetime(values[3], values[4], values[5],
                                                                values[6], values[7], values[8]),
                              "timezone_offset": values[9],
@@ -427,8 +461,8 @@ class Nuki:
                              "current_update_count": values[11],
                              "lock_n_go_timer": values[12],
                              "last_lock_action": NukiAction(values[13]),
-                             "last_lock_action_trigger": values[14],
-                             "last_lock_action_completion_status": values[15],
+                             "last_lock_action_trigger": NukiActionTrigger(values[14]),
+                             "last_lock_action_completion_status": LockActionCompletionStatus(values[15]),
                              "door_sensor_state": DoorsensorState(values[16]),
                              "nightmode_active": values[17],
                              # "accessory_battery_state": values[18],  # It doesn't exist?
@@ -437,7 +471,7 @@ class Nuki:
             values = struct.unpack("<BBBHBBBBBHBBBBBBBH", data[:21])
             return command, {"nuki_state": NukiState(values[0]),
                              "lock_state": OpenerState(values[1]),
-                             "trigger": values[2],
+                             "trigger": NukiActionTrigger(values[2]),
                              "current_time": datetime.datetime(values[3], values[4], values[5],
                                                                values[6], values[7], values[8]),
                              "timezone_offset": values[9],
@@ -445,8 +479,8 @@ class Nuki:
                              "current_update_count": values[11],
                              "ring_to_open_timer": values[12],
                              "last_lock_action": NukiAction(values[13]),
-                             "last_lock_action_trigger": values[14],
-                             "last_lock_action_completion_status": values[15],
+                             "last_lock_action_trigger": NukiActionTrigger(values[14]),
+                             "last_lock_action_completion_status": LockActionCompletionStatus(values[15]),
                              "door_sensor_state": DoorsensorState(values[16]),
                              "nightmode_active": values[17],
                              # "accessory_battery_state": values[18],  # It doesn't exist?
@@ -504,6 +538,43 @@ class Nuki:
                              "hardware_revision": f"{values[26]}.{values[27]}",
                              "timezone_id": values[28],
                              }
+        elif command == NukiCommand.LOG_ENTRY:
+            values = struct.unpack("<IHBBBBBI32sB", data[:48])
+            ret_data = {"index": values[0],
+                        "timestamp": datetime.datetime(values[1], values[2], values[3],
+                                                        values[4], values[5], values[6]),
+                        "auth_id" : values[7],
+                        "name" : values[8].split(b"\x00")[0].decode(),
+                        "type" : LogEntryType(values[9])
+            }
+            if ret_data["type"] in [0x1, 0x6, 0x7]:
+                values = struct.unpack("<B", data[48:49])
+                ret_data["data"] = values[0]
+            elif ret_data["type"] in [0x2, 0x3, 0x4]:
+                values = struct.unpack("<BBBB", data[48:52])
+                ret_data["lock_action"] = NukiAction(values[0])
+                ret_data["trigger"] = NukiActionTrigger(values[1])
+                ret_data["flags"] = values[2]
+                ret_data["auto_unlock"] = ret_data["flags"] & 0b0001
+                ret_data["force"] = ret_data["flags"] & 0b0010
+                ret_data["completion_status"] = LockActionCompletionStatus(values[3])
+            elif ret_data["type"] == 0x5:
+                values = struct.unpack("<BBBH", data[48:52])
+                ret_data["lock_action"] = NukiAction(values[0])
+                ret_data["source"] = values[1]
+                ret_data["completion_status"] = LockActionCompletionStatus(values[2])
+                ret_data["code_id"] = values[3]
+            else:
+                logger.error(f"Invalid type {ret_data['type']}")
+            return command, ret_data
+        elif command == NukiCommand.LOG_ENTRY_COUNT:
+            values = struct.unpack("<BHBB", data[:5])
+            ret_data = {"logging_enabled": values[0],
+                             "count" : values[1],
+                             "door_sensor_enabled" : values[2],
+                             "door_sensor_logging_enabled" : values[3]
+            }
+            return command, ret_data
 
         elif command == NukiCommand.PUBLIC_KEY:
             return command, {"public_key": data}
@@ -523,11 +594,11 @@ class Nuki:
             data, _cmd = struct.unpack('<bH', data[:3])
             return command, data
 
-        return None, None
+        return command, None
 
     async def reset_opener_state(self):
         await asyncio.sleep(30)
-        self.last_state["last_lock_action_completion_status"] = 0
+        self.last_state["last_lock_action_completion_status"] = LockActionCompletionStatus.SUCCESS
         if self.config and self.last_state:
             await self.manager.nuki_newstate(self)
 
@@ -609,8 +680,9 @@ class Nuki:
             elif self._challenge_command in NukiAction:
                 lock_action = self._challenge_command.value.to_bytes(1, "little")
                 app_id = self.manager.app_id.to_bytes(4, "little")
-                flags = 0
-                payload = lock_action + app_id + flags.to_bytes(1, "little") + data["nonce"]
+                flags = (0).to_bytes(1, "little")
+                name_suffix = ""
+                payload = lock_action + app_id + flags + name_suffix.encode("utf-8").ljust(20, b"\0")[:20] + data["nonce"]
                 cmd = self._encrypt_command(NukiCommand.LOCK_ACTION.value, payload)
                 await self._send_data(self._BLE_CHAR, cmd)
 
@@ -632,6 +704,23 @@ class Nuki:
                 self._challenge_command = NukiCommand.AUTH_DATA
                 cmd = self._prepare_command(NukiCommand.AUTH_DATA.value, payload)
                 await self._send_data(self._BLE_PAIRING_CHAR, cmd)
+
+            elif self._challenge_command == NukiCommand.VERIFY_SECURITY_PIN:
+                payload = data["nonce"] + self._pincode
+                cmd = self._encrypt_command(NukiCommand.VERIFY_SECURITY_PIN.value, payload)
+                await self._send_data(self._BLE_CHAR, cmd)
+
+            elif self._challenge_command == NukiCommand.REQUEST_LOG_ENTRIES:
+                start_index = (0).to_bytes(4,"little")
+                count = (1).to_bytes(2,"little")
+                sort_order = (0x01).to_bytes(1,"little")
+                total_count = (0).to_bytes(1,"little")
+                payload = start_index + count + sort_order + total_count + data["nonce"] + self._pincode
+                cmd = self._encrypt_command(NukiCommand.REQUEST_LOG_ENTRIES.value, payload)
+                await self._send_data(self._BLE_CHAR, cmd)
+
+        else:
+            logger.warning(f"received unknown command {command} data: {data}")
 
     async def _send_data(self, characteristic, data):
         async def task():
@@ -747,3 +836,19 @@ class Nuki:
         cmd = self._prepare_command(NukiCommand.REQUEST_DATA.value, payload)
         await self.connect()
         await self._send_data(self._BLE_PAIRING_CHAR, cmd)
+
+    async def verify_pin(self, pin):
+        logger.info(f"verify PIN {pin}")
+        self._challenge_command = NukiCommand.VERIFY_SECURITY_PIN
+        self._pincode = pin.to_bytes(2, "little")
+        payload = NukiCommand.CHALLENGE.value.to_bytes(2, "little")
+        cmd = self._encrypt_command(NukiCommand.REQUEST_DATA.value, payload)
+        await self._send_data(self._BLE_CHAR, cmd)
+
+    async def request_last_log_entry(self, pin):
+        logger.info(f"request last log entry")
+        self._challenge_command = NukiCommand.REQUEST_LOG_ENTRIES
+        self._pincode = pin.to_bytes(2, "little")
+        payload = NukiCommand.CHALLENGE.value.to_bytes(2, "little")
+        cmd = self._encrypt_command(NukiCommand.REQUEST_DATA.value, payload)
+        await self._send_data(self._BLE_CHAR, cmd)
