@@ -138,8 +138,7 @@ class NukiManager:
 
         self._adapter = adapter
         self._devices = {}
-        self._scanner = BleakScanner(adapter=self._adapter)
-        self._scanner.register_detection_callback(self._detected_ibeacon)
+        self._scanner = BleakScanner(adapter=self._adapter, detection_callback=self._detected_ibeacon, service_uuids=[BLE_SMARTLOCK_SERVICE])
         self.taskQueue = TaskQueue(self)
 
     @property
@@ -218,14 +217,14 @@ class NukiManager:
             if manufacturer_data[0] != 0x02:
                 # Ignore HomeKit advertisement
                 return
-            logger.info(f"Nuki: {device.address}, adapter: {self._adapter}, RSSI: {device.rssi} {advertisement_data}")
+            logger.info(f"Nuki: {device.address}, adapter: {self._adapter}, RSSI: {advertisement_data.rssi} {advertisement_data}")
             tx_p = manufacturer_data[-1]
             nuki = self._devices[device.address]
             if nuki.just_got_beacon:
                 logger.info(f'Ignoring duplicate beacon from Nuki {device.address}')
                 return
             nuki.set_ble_device(device)
-            nuki.rssi = device.rssi
+            nuki.rssi = advertisement_data.rssi
             if not nuki.device_type:
                 async def conn():
                     try:
@@ -678,7 +677,7 @@ class Nuki:
         logger.debug(f"Services {[str(s) for s in self._client.services]}")
         logger.debug(f"Characteristics {[str(v) for v in self._client.services.characteristics.values()]}")
         if not self.device_type:
-            services = await self._client.get_services()
+            services = self._client.services
             if services.get_characteristic(BLE_OPENER_PAIRING_CHAR):
                 self.device_type = DeviceType.OPENER
             else:
