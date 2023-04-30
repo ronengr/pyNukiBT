@@ -1,7 +1,9 @@
 import construct
 from construct import Bit, BitStruct, Optional, Padding, Struct, Byte, Enum, Int8ul, Int16ul, Int32ul, Int8sl, Int16sl, Float32l, PaddedString, Bytes, Switch, this
 import functools
-from fastcrc import crc16
+import crccheck
+
+crcCalc = crccheck.crc.Crc(width=16, poly=0x1021, initvalue=0xffff, reflect_input=False, reflect_output=False, xor_output=0x0, check_result=0x31c3, residue=0x0)
 
 class NukiConst:
     ErrorCode = Enum(Int8ul,
@@ -551,7 +553,7 @@ class NukiConst:
             "command" / self.NukiCommand,
             "payload" / Switch(this.command, self.message_types),
             "crc" / NukiChecksum(Int16ul,
-                             lambda data: crc16.xmodem(data, 0xFFFF),
+                             lambda data: crcCalc.calc(data),
                              lambda x: x._io.getvalue()[:x._io.tell()])
         )
 
@@ -561,7 +563,7 @@ class NukiConst:
             "command" / self.NukiCommand,
             "payload" / Switch(this.command, self.message_types),
             "crc" / NukiChecksum(Int16ul,
-                             lambda data: crc16.xmodem(data, 0xFFFF),
+                             lambda data: crcCalc.calc(data),
                              lambda x: x._io.getvalue()[:x._io.tell()])
         )
 

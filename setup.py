@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setup(
     name="pyNukiBT",
-    version="0.0.1",
+    version="0.0.3",
     author="Ronen Gruengras",
     author_email="ronengr@gmail.com",
     description="Nuki Bluetooth API",
@@ -15,7 +15,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "bleak>=0.20",
-        "fastcrc>=0.2.1",
+        "crccheck>=1.3.0",
         "PyNaCl>=1.3.0",
         "construct>=2.10.68",
     ],

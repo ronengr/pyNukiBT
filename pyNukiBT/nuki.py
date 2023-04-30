@@ -14,14 +14,13 @@ import async_timeout
 
 # from bleak_retry_connector import BLEAK_RETRY_EXCEPTIONS
 
-from fastcrc import crc16
 import nacl.utils
 import nacl.secret
 from nacl.bindings.crypto_box import crypto_box_beforenm
 from bleak import BleakClient, BleakError
 from bleak.exc import BleakDBusError
 
-from .const import NukiErrorException, NukiLockConst, NukiOpenerConst, NukiConst
+from .const import NukiErrorException, NukiLockConst, NukiOpenerConst, NukiConst, crcCalc
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +161,7 @@ class NukiDevice:
     @staticmethod
     def _prepare_command(cmd: NukiConst.NukiCommand, payload=bytes()):
         message = NukiConst.NukiCommand.build(cmd) + payload
-        crc = crc16.xmodem(message, 0xFFFF).to_bytes(2, "little")
+        crc = crcCalc.calc(message).to_bytes(2, "little")
         message += crc
         return message
 
