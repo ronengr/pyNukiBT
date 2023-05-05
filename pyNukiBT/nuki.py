@@ -308,6 +308,7 @@ class NukiDevice:
             if update_config:
                 # todo: update config directly?
                 self.poll_needed = True
+            self._fire_callbacks()
 
         elif msg.command == self._const.NukiCommand.STATUS:
             logger.info(f"Last action: {msg.payload.status}")
@@ -434,7 +435,6 @@ class NukiDevice:
             self._poll_needed = False
         if update_config:
             await self.update_config()
-        self._fire_callbacks()
 
     async def lock(self):
         return await self.lock_action(
@@ -582,8 +582,8 @@ class NukiDevice:
                     raise
             return msg.status == self._const.StatusCode.COMPLETED
 
-    async def request_log_entry(self, security_pin, sort_order=0x01, count=1):
-        logger.info(f"request last log entry")
+    async def request_log_entries(self, security_pin, sort_order=0x01, count=1, start_index=0):
+        logger.info(f"request {count} log entries, start={start_index}")
         async with self._operation_lock:
             msg = await self._send_encrtypted_command(
                 self._const.NukiCommand.REQUEST_DATA,
@@ -591,7 +591,7 @@ class NukiDevice:
                 expected_response=self._const.NukiCommand.CHALLENGE,
             )
             payload = {
-                "start_index": 0,
+                "start_index": start_index,
                 "count": count,
                 "sort_order": sort_order,
                 "total_count": 0,
