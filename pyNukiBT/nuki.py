@@ -58,9 +58,8 @@ class NukiDevice:
         self._expected_response: NukiConst.NukiCommand = None
         self._aggregate_messages = list(),
         self.retry = 5
-        self.connection_timeout = 30
-        self.command_timeout = 30
-        self.command_response_timeout = 10
+        self.connection_timeout = 40
+        self.command_response_timeout = 20
 
         self._send_cmd_lock = asyncio.Lock()
         self._connect_lock = asyncio.Lock()
@@ -338,7 +337,7 @@ class NukiDevice:
                     if _characteristic is None:
                         _characteristic = self._const.BLE_CHAR
                     logger.info(f"Sending data to Nuki")
-                    await self._client.write_gatt_char(_characteristic, command)
+                    await self._client.write_gatt_char(_characteristic, command, response=True)
                 except (TimeoutError, CancelledError):
                     logger.error(f"Timeout while sending data on attempt {i}")
                     await asyncio.sleep(0.2)
