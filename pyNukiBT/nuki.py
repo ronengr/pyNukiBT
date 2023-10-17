@@ -420,6 +420,7 @@ class NukiDevice:
             logger.info("update state already in progress. ignoring")
             return
         async with self._update_state_lock, self._operation_lock:
+            await self.connect() # connect so we can identify the device type and update self._const accordingly
             msg = await self._send_encrtypted_command(
                 self._const.NukiCommand.REQUEST_DATA,
                 {"command": self._const.NukiCommand.KEYTURNER_STATES},

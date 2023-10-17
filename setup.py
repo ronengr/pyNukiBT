@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setup(
     name="pyNukiBT",
-    version="0.0.5",
+    version="0.0.6",
     author="Ronen Gruengras",
     author_email="ronengr@gmail.com",
     description="Nuki Bluetooth API",
