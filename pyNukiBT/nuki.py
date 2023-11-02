@@ -302,7 +302,7 @@ class NukiDevice:
             logger.debug(f"State: {self.last_state}")
             if update_config:
                 # todo: update config directly?
-                self.poll_needed = True
+                self._poll_needed = True
             self._fire_callbacks()
 
         elif msg.command == self._const.NukiCommand.STATUS:
