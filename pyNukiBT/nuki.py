@@ -378,7 +378,8 @@ class NukiDevice:
         async with self._connect_lock:
             if not self._client:
                 self._client = BleakClient(
-                    self._address, timeout=self.connection_timeout
+                    BLEDevice(address=self._address, details=None, name=self._name, rssi=self.rssi),
+                    timeout=self.connection_timeout
                 )
             if self._client.is_connected:
                 logger.info("Connected")
