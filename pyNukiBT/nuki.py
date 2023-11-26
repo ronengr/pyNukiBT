@@ -255,7 +255,10 @@ class NukiDevice:
         if ble_device:
             self._client = BleakClient(ble_device, timeout=self.connection_timeout)
         else:
-            self._client = BleakClient(self._address, timeout=self.connection_timeout)
+            self._client = BleakClient(
+                BLEDevice(address=self._address, details=None, name=self._name, rssi=self.rssi),
+                timeout=self.connection_timeout
+            )
 
     async def _notification_handler(self, sender: BleakGATTCharacteristic, data):
         logger.debug(f"Notification handler: {sender}, data: {data}")
