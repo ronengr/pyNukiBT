@@ -36,6 +36,7 @@ class NukiDevice:
         name,
         client_type: NukiConst.NukiClientType = NukiConst.NukiClientType.BRIDGE,
         ble_device=None,
+        get_ble_device=None,
     ):
         self._address = address
         self._auth_id = auth_id
@@ -56,7 +57,7 @@ class NukiDevice:
         self._pairing_handle = None
         self._client = None
         self._expected_response: NukiConst.NukiCommand = None
-        self._aggregate_messages = list(),
+        self._aggregate_messages = list()
         self.retry = 5
         self.connection_timeout = 40
         self.command_response_timeout = 20
@@ -79,6 +80,8 @@ class NukiDevice:
         if ble_device:
             self.set_ble_device(ble_device)
 
+        self._get_ble_device = get_ble_device
+
     def parse_advertisement_data(self, device, advertisement_data):
         if device.address == self._address:
             manufacturer_data = advertisement_data.manufacturer_data.get(76, None)
@@ -95,7 +98,7 @@ class NukiDevice:
             if self.just_got_beacon:
                 logger.info(f"Ignoring duplicate beacon from Nuki {device.address}")
                 return
-            self.set_ble_device(device, advertisement_data)
+            self.set_ble_device(device)
             self.rssi = advertisement_data.rssi
             if not self.last_state or tx_p & 0x1:
                 self._poll_needed = True
@@ -246,20 +249,16 @@ class NukiDevice:
 
         return _unsub
 
-    def set_ble_device(
-        self, ble_device: BLEDevice, advertisement_data: AdvertisementData = None
-    ):
-        if not self._client:
+    def set_ble_device(self, ble_device: BLEDevice = None):
+        if not ble_device and self._get_ble_device:
+            ble_device = self._get_ble_device(self._address)
+        if ble_device:
             self._client = BleakClient(ble_device, timeout=self.connection_timeout)
-        if (not self._device_type or not self._const) and advertisement_data:
-            if NukiOpenerConst.BLE_PAIRING_CHAR in advertisement_data.service_uuids:
-                self._device_type = NukiConst.NukiDeviceType.OPENER
-                self._const = NukiOpenerConst
-            else:
-                self._device_type = NukiConst.NukiDeviceType.SMARTLOCK_1_2
-                self._const = NukiLockConst
-
-        return self._client
+        else:
+            self._client = BleakClient(
+                BLEDevice(address=self._address, details=None, name=self._name, rssi=self.rssi),
+                timeout=self.connection_timeout
+            )
 
     async def _notification_handler(self, sender: BleakGATTCharacteristic, data):
         logger.debug(f"Notification handler: {sender}, data: {data}")
@@ -306,7 +305,7 @@ class NukiDevice:
             logger.debug(f"State: {self.last_state}")
             if update_config:
                 # todo: update config directly?
-                self.poll_needed = True
+                self._poll_needed = True
             self._fire_callbacks()
 
         elif msg.command == self._const.NukiCommand.STATUS:
@@ -377,10 +376,7 @@ class NukiDevice:
     async def connect(self):
         async with self._connect_lock:
             if not self._client:
-                self._client = BleakClient(
-                    BLEDevice(address=self._address, details=None, name=self._name, rssi=self.rssi),
-                    timeout=self.connection_timeout
-                )
+                self.set_ble_device()
             if self._client.is_connected:
                 logger.info("Connected")
                 return
@@ -428,8 +424,7 @@ class NukiDevice:
                 expected_response=self._const.NukiCommand.KEYTURNER_STATES,
             )
             update_config = not self.config or (
-                self.last_state["config_update_count"]
-                != msg["config_update_count"]
+                self.last_state["config_update_count"] != msg["config_update_count"]
             )
             self.last_state = msg
             logger.debug(f"State: {self.last_state}")
