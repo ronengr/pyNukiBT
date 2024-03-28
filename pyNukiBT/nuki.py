@@ -93,7 +93,7 @@ class NukiDevice:
             if manufacturer_data[0] != 0x02:
                 # Ignore HomeKit advertisement
                 return
-            logger.info(f"Nuki: {device.address}, RSSI: {advertisement_data.rssi}")
+            logger.debug(f"Nuki: {device.address}, RSSI: {advertisement_data.rssi}")
             tx_p = manufacturer_data[-1]
             if self.just_got_beacon:
                 logger.info(f"Ignoring duplicate beacon from Nuki {device.address}")
