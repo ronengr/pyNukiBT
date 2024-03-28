@@ -414,23 +414,25 @@ class NukiDevice:
     async def update_state(self):
         logger.info("Querying Nuki state")
         if self._update_state_lock.locked():
-            logger.info("update state already in progress. ignoring")
-            return
-        async with self._update_state_lock, self._operation_lock:
-            await self.connect() # connect so we can identify the device type and update self._const accordingly
-            msg = await self._send_encrtypted_command(
-                self._const.NukiCommand.REQUEST_DATA,
-                {"command": self._const.NukiCommand.KEYTURNER_STATES},
-                expected_response=self._const.NukiCommand.KEYTURNER_STATES,
-            )
-            update_config = not self.config or (
-                self.last_state["config_update_count"] != msg["config_update_count"]
-            )
-            self.last_state = msg
-            logger.debug(f"State: {self.last_state}")
-            self._poll_needed = False
-        if update_config:
-            await self.update_config()
+            logger.info("update state already in progress, waiting.")
+            async with self._update_state_lock:
+                return
+        async with self._update_state_lock:
+            async with self._operation_lock:
+                await self.connect() # connect so we can identify the device type and update self._const accordingly
+                msg = await self._send_encrtypted_command(
+                    self._const.NukiCommand.REQUEST_DATA,
+                    {"command": self._const.NukiCommand.KEYTURNER_STATES},
+                    expected_response=self._const.NukiCommand.KEYTURNER_STATES,
+                )
+                update_config = not self.config or (
+                    self.last_state["config_update_count"] != msg["config_update_count"]
+                )
+                self.last_state = msg
+                logger.debug(f"State: {self.last_state}")
+                self._poll_needed = False
+            if update_config:
+                await self.update_config()
 
     async def lock(self):
         return await self.lock_action(
