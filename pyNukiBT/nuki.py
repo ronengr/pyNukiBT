@@ -98,7 +98,11 @@ class NukiDevice:
             if self.just_got_beacon:
                 logger.info(f"Ignoring duplicate beacon from Nuki {device.address}")
                 return
-            self.set_ble_device(device)
+
+            # Don't change the device if we are in the middle of connect.
+            # using self._connect_lock.locked() is safe, as there is no real multithreading in python.
+            if not self._connect_lock.locked():
+                self.set_ble_device(device)
             self.rssi = advertisement_data.rssi
             if not self.last_state or tx_p & 0x1:
                 self._poll_needed = True
@@ -381,10 +385,11 @@ class NukiDevice:
                 logger.info("Connected")
                 return
             await self._client.connect()
-            logger.debug(f"Services {[str(s) for s in self._client.services]}")
-            logger.debug(
-                f"Characteristics {[str(v) for v in self._client.services.characteristics.values()]}"
-            )
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Services {[str(s) for s in self._client.services]}")
+                logger.debug(
+                    f"Characteristics {[str(v) for v in self._client.services.characteristics.values()]}"
+                )
             if (not self._device_type or not self._const):
                 services = self._client.services
                 if services.get_characteristic(NukiOpenerConst.BLE_PAIRING_CHAR):
