@@ -201,7 +201,6 @@ class NukiDevice:
         return decrypted
 
     def _parse_message(self, data: bytes, encrypted: bool):
-        msg_sz = None
         try:
             if encrypted:
                 msg = self._const.NukiMessage.parse(self._decrypt_message(data))
@@ -212,28 +211,15 @@ class NukiDevice:
                 logger.warning(f"got message with crc=0. cmd:{msg.command}")
                 try:
                     msg = self._const.NukiMessage2.parse(data)
-                    msg_sz = len(self._const.NukiMessage2.build(msg))
                 except TypeError:
                     pass
         except construct.core.ChecksumError as ex:
             logger.warning(f"parse error {ex}")
-            try:
-                msg = self._const.NukiMessage2.parse(data)
-                msg_sz = len(self._const.NukiMessage2.build(msg))
-            except TypeError:
-                msg_sz = 0
-            if msg_sz == len(data):
-                # If we got the len we expected, this is probably a real crc error.
-                # Otherwise it is probably not a real crc error, we are just missing some fields in the message format
-                raise
+            raise
 
-        if msg_sz and msg_sz != len(data):
-            logger.warning(
-                f"Got unexpected message length for command {msg.command}. got length:{len(data)} expecting length:{msg_sz}"
-            )
-            unhandled_bytes = len(data) - msg_sz
-            logger.warning(
-                f"Got {unhandled_bytes} unknown bytes with value: {data[-unhandled_bytes-2:-2]}"
+        if msg and len(msg.unknown) != 0:
+            logger.debug(
+                f"Got unexpected message length for command {msg.command}. Got {len(msg.unknown)} unknown bytes with value: {msg.unknown}"
             )
 
         return msg
