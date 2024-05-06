@@ -441,8 +441,7 @@ class NukiConst:
         )
 
     LogEntryExt1 = Struct(
-        "logging_enabled" / Int8ul,
-        "padding" / Padding(4),
+        "logging_enabled" / Int8ul
     )
 
     @functools.cached_property
@@ -451,8 +450,7 @@ class NukiConst:
             "lock_action" / self.LockAction,
             "trigger" / self.ActionTrigger,
             "flags" / Int8ul,
-            "completion_status" / self.LockActionCompletionStatus,
-            "padding" / Padding(1),
+            "completion_status" / self.LockActionCompletionStatus
         )
 
     @functools.cached_property
@@ -465,8 +463,7 @@ class NukiConst:
         )
 
     LogEntryExt4 = Struct(
-        "door_status" / Int8ul,
-        "padding" / Padding(4),
+        "door_status" / Int8ul
     )
 
     @functools.cached_property
