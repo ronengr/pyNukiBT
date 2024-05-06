@@ -183,6 +183,7 @@ class NukiDevice:
                 "auth_id": self._auth_id,
                 "command": cmd,
                 "payload": payload,
+                "unknown": b'',
             }
         )
         nonce = nacl.utils.random(24)

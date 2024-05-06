@@ -1,5 +1,5 @@
 import construct
-from construct import Bit, BitStruct, Optional, Padding, Struct, Byte, Enum, Int8ul, Int16ul, Int32ul, Int8sl, Int16sl, Float32l, PaddedString, Bytes, Switch, this
+from construct import Bit, BitStruct, Optional, Padding, OffsettedEnd, Struct, Byte, Enum, Int8ul, Int16ul, Int32ul, Int8sl, Int16sl, Float32l, PaddedString, Bytes, Switch, GreedyBytes, this
 import functools
 import crccheck
 
@@ -552,6 +552,7 @@ class NukiConst:
             "auth_id" / Bytes(4),
             "command" / self.NukiCommand,
             "payload" / Switch(this.command, self.message_types),
+            "unknown" / OffsettedEnd(-2, GreedyBytes),
             "crc" / NukiChecksum(Int16ul,
                              lambda data: crcCalc.calc(data),
                              lambda x: x._io.getvalue()[:x._io.tell()])
@@ -562,6 +563,7 @@ class NukiConst:
         return Struct(
             "command" / self.NukiCommand,
             "payload" / Switch(this.command, self.message_types),
+            "unknown" / OffsettedEnd(-2, GreedyBytes),
             "crc" / NukiChecksum(Int16ul,
                              lambda data: crcCalc.calc(data),
                              lambda x: x._io.getvalue()[:x._io.tell()])
@@ -573,6 +575,7 @@ class NukiConst:
             "auth_id" / Bytes(4),
             "command" / self.NukiCommand,
             "payload" / Switch(this.command, self.message_types),
+            "unknown" / OffsettedEnd(-2, GreedyBytes),
             "crc" / Int16ul,
         )
 
