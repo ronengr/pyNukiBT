@@ -203,8 +203,11 @@ class NukiDevice:
     def _parse_message(self, data: bytes, encrypted: bool):
         try:
             if encrypted:
-                msg = self._const.NukiMessage.parse(self._decrypt_message(data))
+                decrypted = self._decrypt_message(data)
+                logger.debug(f"parsing decrypted message {decrypted}")    
+                msg = self._const.NukiMessage.parse(decrypted)
             else:
+                logger.debug(f"parsing unencrypted message {data}")
                 msg = self._const.NukiUnencryptedMessage.parse(data)
             # keyturner_state usually has crc=0. if we got crc=0 in other command we want to know about it.
             if msg.crc == 0 and msg.command != self._const.NukiCommand.KEYTURNER_STATES:
