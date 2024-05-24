@@ -205,8 +205,9 @@ class NukiDevice:
                 msg = self._const.NukiMessage.parse(self._decrypt_message(data))
             else:
                 msg = self._const.NukiUnencryptedMessage.parse(data)
-            # keyturner_state usually has crc=0. if we got crc=0 in other command we want to know about it.
-            if msg.crc == 0 and msg.command != self._const.NukiCommand.KEYTURNER_STATES:
+            # In the past there where some cases where crc was 0.
+            # We don't want to fail in this case, but we do want to log it to see if it is still happening.
+            if msg.crc == 0:
                 logger.warning(f"got message with crc=0. cmd:{msg.command}")
         except construct.core.ChecksumError as ex:
             logger.error(f"Checksum error in incoming message {ex}")

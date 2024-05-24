@@ -674,6 +674,7 @@ class NukiLockConst(NukiConst):
         "door_sensor_state" / NukiConst.DoorsensorState,
         "nightmode_active" / Int16ul,
         "accessory_battery_state" / Int8ul,
+        Optional(Padding(4)), #this doesn't exist in the documentation, but we see it in real world communications
     )
 
     Config = Struct(
