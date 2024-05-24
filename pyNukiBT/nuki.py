@@ -49,6 +49,7 @@ class NukiDevice:
 
         self.rssi = None
         self.last_state = None
+        self._last_update_state_successful = False
         self.config = {}
         self._poll_needed = False
         self.last_action_status = None
@@ -404,9 +405,12 @@ class NukiDevice:
         if self._update_state_lock.locked():
             logger.info("update state already in progress, waiting.")
             async with self._update_state_lock:
-                return
+                #if last update wasn't successful, retry so caller can get the exception.
+                if self._last_update_state_successful:
+                    return
         async with self._update_state_lock:
             async with self._operation_lock:
+                self._last_update_state_successful = False
                 await self.connect() # connect so we can identify the device type and update self._const accordingly
                 msg = await self._send_encrtypted_command(
                     self._const.NukiCommand.REQUEST_DATA,
@@ -419,6 +423,7 @@ class NukiDevice:
                 self.last_state = msg
                 logger.debug(f"State: {self.last_state}")
                 self._poll_needed = False
+                self._last_update_state_successful = True
             if update_config:
                 await self.update_config()
 
