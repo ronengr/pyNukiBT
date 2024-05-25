@@ -215,7 +215,7 @@ class NukiDevice:
             raise
 
         if msg and len(msg.unknown) != 0:
-            logger.error(
+            logger.warning(
                 f"Got unexpected message length for command {msg.command}. Got {len(msg.unknown)} unknown bytes with value: {msg.unknown}"
             )
 
