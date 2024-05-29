@@ -59,8 +59,10 @@ class NukiDevice:
         self._client = None
         self._expected_response: NukiConst.NukiCommand = None
         self._aggregate_messages = list()
-        self.retry = 5
-        self.connection_timeout = 40
+        self.send_retry = 10
+        self.response_retry = 3
+        self.retry_interval = 0.1
+        self.connection_timeout = 20
         self.command_response_timeout = 20
 
         self._send_cmd_lock = asyncio.Lock()
@@ -309,47 +311,52 @@ class NukiDevice:
         expected_response: NukiConst.NukiCommand = None
     ):
         async with self._send_cmd_lock:
-            self._notify_future = asyncio.Future()
-            self._aggregate_messages = aggregate_messages
-            self._expected_response = expected_response
-            self._messages = list()
             msg = None
-
-            # Sometimes the connection to the smartlock fails, retry 3 times
-            _characteristic = characteristic
-            for i in range(1, self.retry + 1):
-                logger.info(f"Trying to send data. Attempt {i}")
+            last_exc=None
+            # Sometimes we do not get a response from the lock, retry several times
+            for j in range(1, self.response_retry + 1):
                 try:
-                    await self.connect()
-                    if _characteristic is None:
-                        _characteristic = self._const.BLE_CHAR
-                    logger.info(f"Sending data to Nuki")
-                    await self._client.write_gatt_char(_characteristic, command, response=True)
-                except (TimeoutError, CancelledError):
-                    logger.error(f"Timeout while sending data on attempt {i}")
-                    await asyncio.sleep(0.2)
-                except BleakDBusError as ex:
-                    logger.error(f"DBus Error {ex}")
-                    await asyncio.sleep(0.2)
-                # except BLEAK_RETRY_EXCEPTIONS as ex:
-                #     logger.error(f'Bleak retry error {ex}')
-                #     await asyncio.sleep(0.2)
-                except BleakError as exc:
-                    logger.error(f"Bleak Error while sending data on attempt {i}")
+                    if expected_response:
+                        self._notify_future = asyncio.Future()
+                        self._aggregate_messages = aggregate_messages
+                        self._expected_response = expected_response
+                        self._messages = list()
+
+                    # Sometimes the connection to the smart-lock fails, retry several times
+                    for i in range(1, self.send_retry + 1):
+                        logger.info(f"Trying to send data. Attempt {i}")
+                        try:
+                            await self.connect()
+                            logger.info(f"Sending data to Nuki")
+                            await self._client.write_gatt_char(characteristic, command, response=True)
+                        except BleakError as exc:
+                            last_exc = exc
+                            logger.error(f"Error while sending data on attempt {i}")
+                            logger.exception(exc)
+                            await asyncio.sleep(self.retry_interval)
+                        else:
+                            logger.info(f"Data sent on attempt {i}")
+                            break
+                    else:
+                        logger.info(f'Too many failed attempts when trying to send data. Giving up')
+                        raise last_exc
+
+                    if expected_response:
+                        async with async_timeout.timeout(self.command_response_timeout):
+                            msg = await self._notify_future
+                except(CancelledError, TimeoutError) as exc:
+                    last_exc = exc
+                    logger.error(f"Timeout while waiting for response on attempt {j}")
                     logger.exception(exc)
-                    await asyncio.sleep(0.7)
-                except Exception as exc:
-                    logger.error(f"Error while sending data on attempt {i}")
-                    logger.exception(exc)
-                    await asyncio.sleep(0.2)
                 else:
-                    logger.info(f"Data sent on attempt {i}")
                     break
-        if expected_response:
-            async with async_timeout.timeout(self.command_response_timeout):
-                msg = await self._notify_future
-        self._notify_future = None
-        self._expected_response = None
+                finally:
+                    self._notify_future = None
+                    self._expected_response = None
+                    self._aggregate_messages = None
+            else:
+                logger.info(f'Too many failed attempts waiting for response. Giving up')
+                raise last_exc
         return msg
 
     async def _safe_start_notify(self, *args):
@@ -411,7 +418,6 @@ class NukiDevice:
         async with self._update_state_lock:
             async with self._operation_lock:
                 self._last_update_state_successful = False
-                await self.connect() # connect so we can identify the device type and update self._const accordingly
                 msg = await self._send_encrtypted_command(
                     self._const.NukiCommand.REQUEST_DATA,
                     {"command": self._const.NukiCommand.KEYTURNER_STATES},
@@ -475,7 +481,6 @@ class NukiDevice:
             logger.info("get config already in progress")
             return
         async with self._operation_lock, self._update_config_lock:
-            await self.connect() # connect so we can identify the device type and update self._const accordingly
             msg = await self._send_encrtypted_command(
                 self._const.NukiCommand.REQUEST_DATA,
                 {"command": self._const.NukiCommand.CHALLENGE},
@@ -491,7 +496,6 @@ class NukiDevice:
 
     async def pair(self):
         async with self._operation_lock:
-            await self.connect() # connect so we can identify the device type and update self._const accordingly
             payload = self._const.NukiCommand.build(self._const.NukiCommand.PUBLIC_KEY)
             cmd = self._prepare_command(self._const.NukiCommand.REQUEST_DATA, payload)
             msg = await self._send_command(
