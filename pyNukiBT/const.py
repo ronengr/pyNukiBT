@@ -442,7 +442,7 @@ class NukiConst:
 
     LogEntryExt1 = Struct(
         "logging_enabled" / Int8ul,
-        "padding" / Padding(4),
+        "padding" / Optional(Padding(4)), #Nuki3 has padding, Nuki4 doesn't
     )
 
     @functools.cached_property
@@ -452,7 +452,7 @@ class NukiConst:
             "trigger" / self.ActionTrigger,
             "flags" / Int8ul,
             "completion_status" / self.LockActionCompletionStatus,
-            "padding" / Padding(1),
+            "padding" / Optional(Padding(1)), #Nuki3 has padding, Nuki4 doesn't
         )
 
     @functools.cached_property
@@ -466,7 +466,7 @@ class NukiConst:
 
     LogEntryExt4 = Struct(
         "door_status" / Int8ul,
-        "padding" / Padding(4),
+        "padding" / Optional(Padding(4)), #Nuki3 has padding, Nuki4 doesn't
     )
 
     @functools.cached_property
@@ -551,7 +551,7 @@ class NukiConst:
         return Struct(
             "auth_id" / Bytes(4),
             "command" / self.NukiCommand,
-            "payload" / Switch(this.command, self.message_types),
+            "payload" / SoftOffsettedEnd(-2, Switch(this.command, self.message_types)), #limit payload parsing stream, otherwise internal Optional() doesn't work.
             "unknown" / Optional(OffsettedEnd(-2, GreedyBytes)),
             "crc" / NukiChecksum(Int16ul,
                              lambda data: crcCalc.calc(data),
@@ -562,7 +562,7 @@ class NukiConst:
     def NukiUnencryptedMessage(self):
         return Struct(
             "command" / self.NukiCommand,
-            "payload" / Switch(this.command, self.message_types),
+            "payload" / SoftOffsettedEnd(-2, Switch(this.command, self.message_types)),
             "unknown" / Optional(OffsettedEnd(-2, GreedyBytes)),
             "crc" / NukiChecksum(Int16ul,
                              lambda data: crcCalc.calc(data),
@@ -574,7 +574,7 @@ class NukiConst:
         return Struct(
             "auth_id" / Bytes(4),
             "command" / self.NukiCommand,
-            "payload" / Switch(this.command, self.message_types),
+            "payload" / SoftOffsettedEnd(-2, Switch(this.command, self.message_types)),
             "unknown" / Optional(OffsettedEnd(-2, GreedyBytes)),
             "crc" / Int16ul,
         )
@@ -960,3 +960,40 @@ class NukiChecksum(construct.Checksum):
                 path=path
             )
         return hash1
+
+class SoftOffsettedEnd(OffsettedEnd):
+    r"""
+    Parses all bytes in the stream till `EOF plus a negative endoffset` is reached or sub-construct has finished.
+
+    Same as OffsettedEnd, except it only consumes the bytes that where actually parsed by the sub-construct.
+
+    This is useful if there is another variable sized filed after SoftOffsettedEnd.
+    """
+    def __init__(self, endoffset, subcon):
+        super().__init__(endoffset, subcon)
+        if isinstance(self.subcon, Struct):
+            self._parse = self._parse_struct
+        else:
+            self._parse = self._parse_other
+
+    def _parse(self, stream, context, path):
+        raise NotImplementedError
+
+    def _parse_struct(self, stream, context, path):
+        ret = super()._parse(stream, context, path)
+        stream.seek(ret._io.tell(), 0)
+        return ret
+
+    def _parse_other(self, stream, context, path):
+        tmp_subcon = self.subcon
+        class tmpclass():
+            self.substream = None
+            def _parsereport(self, stream, context, path):
+                self.substream = stream
+                return tmp_subcon._parsereport(stream, context, path)
+
+        self.subcon = tmpclass()
+        ret = super()._parse(stream, context, path)
+        stream.seek(self.subcon.substream.tell(), 0)
+        self.subcon = tmp_subcon
+        return ret
