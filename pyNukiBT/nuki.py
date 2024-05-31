@@ -331,14 +331,14 @@ class NukiDevice:
                             await self._client.write_gatt_char(characteristic, command, response=True)
                         except BleakError as exc:
                             last_exc = exc
-                            logger.error(f"Error while sending data on attempt {i}")
-                            logger.exception(exc)
+                            logger.warning(f"Error while sending data on attempt {i}")
+                            logger.warning(exc, exc_info=True)
                             await asyncio.sleep(self.retry_interval)
                         else:
                             logger.info(f"Data sent on attempt {i}")
                             break
                     else:
-                        logger.info(f'Too many failed attempts when trying to send data. Giving up')
+                        logger.error(f'Too many failed attempts when trying to send data. Giving up')
                         raise last_exc
 
                     if expected_response:
@@ -346,8 +346,7 @@ class NukiDevice:
                             msg = await self._notify_future
                 except(CancelledError, TimeoutError) as exc:
                     last_exc = exc
-                    logger.error(f"Timeout while waiting for response on attempt {j}")
-                    logger.exception(exc)
+                    logger.warning(f"Timeout while waiting for response on attempt {j}")
                 else:
                     break
                 finally:
@@ -355,7 +354,7 @@ class NukiDevice:
                     self._expected_response = None
                     self._aggregate_messages = None
             else:
-                logger.info(f'Too many failed attempts waiting for response. Giving up')
+                logger.error(f'Too many failed attempts waiting for response. Giving up')
                 raise last_exc
         return msg
 
