@@ -1,10 +1,30 @@
 import construct
-from construct import Bit, BitStruct, Optional, Padding, OffsettedEnd, Struct, Byte, Enum, Int8ul, Int16ul, Int32ul, Int8sl, Int16sl, Float32l, PaddedString, Bytes, Switch, GreedyBytes, this
+from construct import Bit, BitStruct, Optional, Padding, OffsettedEnd, Struct, Byte, Enum, Int8ul, Int16ul, Int32ul, Int8sl, Int16sl, Float32l, PaddedString, Bytes, Switch, GreedyBytes, this, Adapter
+from construct.lib.containers import Container
 import functools
 import crccheck
+from datetime import datetime
 
 crcCalc = crccheck.crc.Crc(width=16, poly=0x1021, initvalue=0xffff, reflect_input=False, reflect_output=False, xor_output=0x0, check_result=0x31c3, residue=0x0)
 
+class NukiDateTimeConstruct(Adapter):
+
+    def __init__(self):
+        st = Struct(
+            "year" / Int16ul,
+            "month" / Int8ul,
+            "day" / Int8ul,
+            "hour" / Int8ul,
+            "minute" / Int8ul,
+            "second" / Int8ul,
+        )
+        super().__init__(st)
+
+    def _decode(self, obj, context, path):
+        return datetime(obj.year, obj.month, obj.day, obj.hour, obj.minute, obj.second)
+
+    def _encode(self, obj, context, path):
+        return Container(year=obj.year, month=obj.month, day=obj.day, hour=obj.hour, minute=obj.minute, second=obj.second)
 class NukiConst:
     ErrorCode = Enum(Int8ul,
         #General error codes
@@ -247,14 +267,7 @@ class NukiConst:
         SLOWEST   = 0X03,
     )
 
-    NukiDateTime = Struct(
-        "year" / Int16ul,
-        "month" / Int8ul,
-        "day" / Int8ul,
-        "hour" / Int8ul,
-        "minute" / Int8ul,
-        "second" / Int8ul,
-    )
+    NukiDateTime = NukiDateTimeConstruct()
 
     NukiTime = Struct(
         "hour" / Int8ul,
