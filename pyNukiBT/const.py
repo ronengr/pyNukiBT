@@ -1,9 +1,36 @@
+from packaging import version
 import construct
-from construct import Bit, BitStruct, Optional, Padding, OffsettedEnd, Struct, Byte, Enum, Int8ul, Int16ul, Int32ul, Int8sl, Int16sl, Float32l, PaddedString, Bytes, Switch, GreedyBytes, this, Adapter
+from construct import Bit, BitStruct, Optional, Padding, Struct, Byte, Enum, Int8ul, Int16ul, Int32ul, Int8sl, Int16sl, Float32l, PaddedString, Bytes, Switch, GreedyBytes, this, Adapter
 from construct.lib.containers import Container
 import functools
 import crccheck
 from datetime import datetime
+
+if version.parse(construct.__version__) >= version.parse("2.10.70"):
+    from construct import OffsettedEnd
+else:
+    # workaround for some cases in HA where another extension is forcing an older version of construct.
+    class OffsettedEnd(construct.core.Subconstruct):
+        def __init__(self, endoffset, subcon):
+            super().__init__(subcon)
+            self.endoffset = endoffset
+
+        def _parse(self, stream, context, path):
+            endoffset = construct.core.evaluate(self.endoffset, context)
+            curpos = construct.core.stream_tell(stream, path)
+            construct.core.stream_seek(stream, 0, 2, path)
+            endpos = construct.core.stream_tell(stream, path)
+            construct.core.stream_seek(stream, curpos, 0, path)
+            length = endpos + endoffset - curpos
+            substream = construct.core.BytesIOWithOffsets.from_reading(stream, length, path)
+            return self.subcon._parsereport(substream, context, path)
+
+        def _build(self, obj, stream, context, path):
+            return self.subcon._build(obj, stream, context, path)
+
+        def _sizeof(self, context, path):
+            raise construct.core.SizeofError(path=path)
+
 
 crcCalc = crccheck.crc.Crc(width=16, poly=0x1021, initvalue=0xffff, reflect_input=False, reflect_output=False, xor_output=0x0, check_result=0x31c3, residue=0x0)
 
