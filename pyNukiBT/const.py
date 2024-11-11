@@ -686,7 +686,7 @@ class NukiLockConst(NukiConst):
         "last_lock_action_completion_status" / NukiConst.LockActionCompletionStatus,
         "door_sensor_state" / NukiConst.DoorsensorState,
         "nightmode_active" / Int16ul,
-        "accessory_battery_state" / Int8ul,
+        "accessory_battery_state" / Optional(Int8ul),
         Optional(Padding(4)), #this doesn't exist in the documentation, but we see it in real world communications
     )
 
