@@ -471,7 +471,21 @@ class NukiDevice:
                 expected_response=self._const.NukiCommand.STATUS,
                 response_retry=0,
             )
-            logger.info(f"{msg.status}")
+            logger.info(f"lock_action: {msg.status}")
+            if wait_for_completed and msg.status == NukiConst.StatusCode.ACCEPTED:
+                async with self._send_cmd_lock:
+                    logger.info(f"lock_action: waiting for command completion")
+                    self._notify_future = asyncio.Future()
+                    self._expected_response = self._const.NukiCommand.STATUS
+                    try:
+                        async with async_timeout.timeout(self.command_response_timeout):
+                            msg = await self._notify_future
+                    except(CancelledError, TimeoutError) as exc:
+                        logger.warning(f"Timeout while waiting for response {self._expected_response}")
+                    finally:
+                        self._notify_future = None
+                        self._expected_response = None
+                logger.info(f"lock_action: {msg.status}")
         return msg
 
     async def update_config(self):
