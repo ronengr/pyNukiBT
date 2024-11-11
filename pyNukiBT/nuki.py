@@ -200,13 +200,13 @@ class NukiDevice:
 
         return msg
 
-    def _fire_callbacks(self) -> None:
+    def _fire_callbacks(self, cmd: NukiConst.NukiCommand) -> None:
         """Fire callbacks."""
         logger.debug("%s: Fire callbacks", self._name)
         for callback in self._callbacks:
-            callback()
+            callback(cmd)
 
-    def subscribe(self, callback: Callable[[], None]) -> Callable[[], None]:
+    def subscribe(self, callback: Callable[[NukiConst.NukiCommand], None]) -> Callable[[], None]:
         """Subscribe to device notifications."""
         self._callbacks.append(callback)
 
@@ -257,6 +257,7 @@ class NukiDevice:
                 logger.debug(f"Last action: {msg.payload.status}")
                 self.last_action_status = msg.payload.status
                 self.last_error_command = None
+                self._fire_callbacks(msg.command)
 
             if self._notify_future and not self._notify_future.done():
                 if msg.command == self._expected_response:
@@ -276,7 +277,7 @@ class NukiDevice:
                 logger.debug(f"State: {self.last_state}")
                 if update_config:
                     self._poll_needed_config = True
-                self._fire_callbacks()
+                self._fire_callbacks(msg.command)
 
             elif msg.command != self._const.NukiCommand.STATUS:
                 # NukiCommand.STATUS command may be sent without a command waiting for it,
@@ -297,6 +298,7 @@ class NukiDevice:
             if self._notify_future and not self._notify_future.done():
                 self._notify_future.set_exception(ex)
             else:
+                self._fire_callbacks(NukiConst.NukiCommand.ERROR_REPORT)
                 raise ex
 
 
