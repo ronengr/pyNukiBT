@@ -30,7 +30,7 @@ class NukiConst:
         #General error codes
         ERROR_BAD_CRC = 0xFD, #CRC of received command is invalid
         ERROR_BAD_LENGTH = 0xFE, #Length of retrieved command payload does not match expected length
-        ERROR_UNKNOWN = 0xFF, #Used if no other error code matche
+        ERROR_UNKNOWN = 0xFF, #Used if no other error code matches
 
         #Pairing service error codes
         P_ERROR_NOT_PAIRING = 0x10, #Returned if public key is being requested via request data command, but the Smart Lock is not in pairing mode
@@ -124,7 +124,7 @@ class NukiConst:
         REMOVE_USER_AUTHORIZATION     = 0x0008,
         REQUEST_AUTHORIZATION_ENTRIES = 0x0009,
         AUTHORIZATION_ENTRY           = 0x000A,
-        AUTHORIZATION_DAT_INVITE      = 0x000B,
+        AUTHORIZATION_DATA_INVITE     = 0x000B,
         KEYTURNER_STATES              = 0x000C,
         LOCK_ACTION                   = 0x000D,
         STATUS                        = 0x000E,
@@ -384,8 +384,8 @@ class NukiConst:
     )
 
     AuthorizationEntry = Struct(
-        "auth_id" / Int32ul,
-        "id_type" / Int8ul,
+        "auth_id" / Bytes(4),
+        "id_type" / NukiClientType,
         "name" / PaddedString(32, "utf8"),
         "enabled" / Int8ul,
         "remote_allowed" / Int8ul,
@@ -400,9 +400,9 @@ class NukiConst:
         "allowed_until_time" / NukiTime,
     )
 
-    NewAuthorizationEntry = Struct(
+    AuthorizationDataInvite = Struct(
         "name" / PaddedString(32, "utf8"),
-        "id_type" / Int8ul,
+        "id_type" / NukiClientType,
         "shared_key" / Bytes(32), #TODO: add shared key within class
         "remote_allowed" / Int8ul,
         "time_limited" / Int8ul,
@@ -416,7 +416,7 @@ class NukiConst:
     )
 
     UpdatedAuthorizationEntry = Struct(
-        "auth_id" / Int32ul,
+        "auth_id" / Bytes(4),
         "name" / PaddedString(32, "utf8"),
         "enabled" / Int8ul,
         "remote_allowed" / Int8ul,
@@ -487,7 +487,7 @@ class NukiConst:
         return Struct(
             "index" / Int32ul,
             "timestamp" / self.NukiDateTime,
-            "auth_id" / Int32ul,
+            "auth_id" / Bytes(4),
             "name" / PaddedString(32, "utf8"),
             "type" / self.LogEntryType,
             "data" / Switch(this.type, {
@@ -512,7 +512,7 @@ class NukiConst:
         # self.NukiCommand.REMOVE_USER_AUTHORIZATION     : self.RemoveUserAuthorization,
         # self.NukiCommand.REQUEST_AUTHORIZATION_ENTRIES : self.RequestAuthorizationEntries,
         self.NukiCommand.AUTHORIZATION_ENTRY           : self.AuthorizationEntry,
-        # self.NukiCommand.AUTHORIZATION_DAT_INVITE      : self.AuthorizationDatInvite,
+        self.NukiCommand.AUTHORIZATION_DATA_INVITE     : self.AuthorizationDataInvite,
         self.NukiCommand.KEYTURNER_STATES              : self.KeyturnerStates,
         self.NukiCommand.LOCK_ACTION                   : self.LockActionMsg,
         self.NukiCommand.STATUS                        : self.NukiCommandStatus,
@@ -951,7 +951,7 @@ class NukiErrorException(Exception):
     def __init__(self, error_code: NukiConst.ErrorCode, command : NukiConst.NukiCommand, *args: object) -> None:
         self.error_code = error_code
         self.command = command
-        super().__init__(*args)
+        super().__init__(str(error_code), *args)
 
 
 NukiLockConst = NukiLockConst()

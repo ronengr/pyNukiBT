@@ -12,13 +12,10 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 
 import async_timeout
 
-# from bleak_retry_connector import BLEAK_RETRY_EXCEPTIONS
-
 import nacl.utils
 import nacl.secret
 from nacl.bindings.crypto_box import crypto_box_beforenm
 from bleak import BleakClient, BleakError
-from bleak.exc import BleakDBusError
 
 from .const import NukiErrorException, NukiLockConst, NukiOpenerConst, NukiConst, crcCalc
 
@@ -51,14 +48,17 @@ class NukiDevice:
         self.last_state = None
         self._last_update_state_successful = False
         self.config = {}
-        self._poll_needed = False
+        self._poll_needed = True
+        self._poll_needed_config = True
         self.last_action_status = None
+        self.last_error_command = None
         self._device_type = None
 
         self._pairing_handle = None
         self._client = None
+        self._ble_device = None
         self._expected_response: NukiConst.NukiCommand = None
-        self._aggregate_messages = list()
+        self._aggregate_messages = None
         self.send_retry = 10
         self.response_retry = 3
         self.retry_interval = 0.1
@@ -78,8 +78,6 @@ class NukiDevice:
         if nuki_public_key and bridge_private_key:
             self._create_shared_key()
 
-        self._last_ibeacon = None
-
         if ble_device:
             self.set_ble_device(ble_device)
 
@@ -96,15 +94,12 @@ class NukiDevice:
             if manufacturer_data[0] != 0x02:
                 # Ignore HomeKit advertisement
                 return
-            logger.debug(f"Nuki: {device.address}, RSSI: {advertisement_data.rssi}")
+            logger.debug(f"Received beacon from {device.address}, RSSI: {advertisement_data.rssi}")
             tx_p = manufacturer_data[-1]
-            if self.just_got_beacon:
-                logger.info(f"Ignoring duplicate beacon from Nuki {device.address}")
-                return
 
-            # Don't change the device if we are in the middle of connect.
+            # Don't change the device if we are in the middle of using it.
             # using self._connect_lock.locked() is safe, as there is no real multithreading in python.
-            if not self._connect_lock.locked():
+            if not self._connect_lock.locked() and not self._operation_lock.locked():
                 self.set_ble_device(device)
             self.rssi = advertisement_data.rssi
             if not self.last_state or tx_p & 0x1:
@@ -114,30 +109,11 @@ class NukiDevice:
             logger.error(f"called with invalid address {device.address}")
 
     def poll_needed(self, seconds_since_last_poll=None):
-        return self._poll_needed
-
-    @property
-    def just_got_beacon(self):
-        if self._last_ibeacon is None:
-            self._last_ibeacon = time.time()
-            return False
-        seen_recently = time.time() - self._last_ibeacon <= 1
-        if not seen_recently:
-            self._last_ibeacon = time.time()
-        return seen_recently
+        return self._poll_needed or self._poll_needed_config
 
     @property
     def device_type(self):
         return self._device_type
-
-    # @device_type.setter
-    # def device_type(self, device_type: NukiConst.NukiDeviceType):
-    #     if device_type == NukiConst.NukiDeviceType.OPENER:
-    #         self._const = NukiOpenerConst
-    #     else:
-    #         self._const = NukiLockConst
-    #     self._device_type = device_type
-    #     logger.info(f"Device type: {self._device_type}")
 
     def _create_shared_key(self):
         self._shared_key = crypto_box_beforenm(
@@ -178,8 +154,9 @@ class NukiDevice:
         self,
         cmd: NukiConst.NukiCommand,
         payload: dict,
-        aggregate_messages = list(),
+        aggregate_messages = None,
         expected_response: NukiConst.NukiCommand = None,
+        response_retry: int = None,
     ):
         unencrypted = self._const.NukiMessage.build(
             {
@@ -194,7 +171,7 @@ class NukiDevice:
         message = nonce + self._auth_id + length + encrypted
         logger.info(f"sending encrypted command {cmd}")
         return await self._send_command(
-            self._const.BLE_CHAR, message, aggregate_messages=aggregate_messages, expected_response=expected_response,
+            self._const.BLE_CHAR, message, aggregate_messages=aggregate_messages, expected_response=expected_response, response_retry=response_retry,
         )
 
     def _decrypt_message(self, data: bytes):
@@ -243,6 +220,10 @@ class NukiDevice:
         if not ble_device and self._get_ble_device:
             ble_device = self._get_ble_device(self._address)
         if ble_device:
+            if self._ble_device == ble_device:
+                #no need to create new client if it is the same ble_device
+                return
+            self._ble_device = ble_device
             self._client = BleakClient(ble_device, timeout=self.connection_timeout)
         else:
             self._client = BleakClient(
@@ -251,70 +232,87 @@ class NukiDevice:
             )
 
     async def _notification_handler(self, sender: BleakGATTCharacteristic, data):
-        logger.debug(f"Notification handler: {sender}, data: {data}")
+        try:
+            logger.debug(f"Got incoming message from: {sender}")
 
-        # The pairing handler is not encrypted
-        encrypted = sender.uuid != self._const.BLE_PAIRING_CHAR
-        msg = self._parse_message(bytes(data), encrypted)
+            # The pairing handler is not encrypted
+            encrypted = sender.uuid != self._const.BLE_PAIRING_CHAR
+            msg = self._parse_message(bytes(data), encrypted)
 
-        if msg.command == self._const.NukiCommand.ERROR_REPORT:
-            if msg.payload.error_code == self._const.ErrorCode.P_ERROR_NOT_PAIRING:
-                logger.error("UNPAIRED! Put Nuki in pairing mode by pressing the button 6 seconds, Then try again")
-            else:
-                logger.error(
-                    f"Error {msg.payload.error_code}, command {msg.payload.command_identifier}"
+            logger.debug(f"Got command: {msg.command}")
+            if msg.command == self._const.NukiCommand.ERROR_REPORT:
+                if msg.payload.error_code == self._const.ErrorCode.P_ERROR_NOT_PAIRING:
+                    logger.error("UNPAIRED! Put Nuki in pairing mode by pressing the button 6 seconds, Then try again")
+                else:
+                    logger.error(
+                        f"Error {msg.payload.error_code}, command {msg.payload.command_identifier}"
+                    )
+                ex = NukiErrorException(
+                    error_code=msg.payload.error_code,
+                    command=msg.payload.command_identifier,
                 )
-            ex = NukiErrorException(
-                error_code=msg.payload.error_code,
-                command=msg.payload.command_identifier,
-            )
+                raise ex
+
+            elif msg.command == self._const.NukiCommand.STATUS:
+                logger.debug(f"Last action: {msg.payload.status}")
+                self.last_action_status = msg.payload.status
+                self.last_error_command = None
+
+            if self._notify_future and not self._notify_future.done():
+                if msg.command == self._expected_response:
+                    self._notify_future.set_result(msg.payload)
+                    return
+                if self._aggregate_messages and msg.command in self._aggregate_messages:
+                    self._messages.append(msg.payload)
+                    return
+
+            if msg.command == self._const.NukiCommand.KEYTURNER_STATES:
+                # NukiCommand.KEYTURNER_STATES command may be sent without a command waiting for it.
+                update_config = not self.config or (
+                    self.last_state["config_update_count"]
+                    != msg.payload["config_update_count"]
+                )
+                self.last_state = msg.payload
+                logger.debug(f"State: {self.last_state}")
+                if update_config:
+                    self._poll_needed_config = True
+                self._fire_callbacks()
+
+            elif msg.command != self._const.NukiCommand.STATUS:
+                # NukiCommand.STATUS command may be sent without a command waiting for it,
+                # for example when status is changed from ACCEPTED to COMPLETED
+                logger.error("%s: Received unsolicited notification: %s", self._name, msg)
+                if msg.command == self._expected_response and (not self._notify_future or self._notify_future.done()):
+                    logger.error("received expected response but no active notify_future {self._notify_future}")
+                else:
+                    logger.error("was expecting %s", self._expected_response)
+
+        except Exception as ex:
+            if isinstance(ex, NukiErrorException):
+                self.last_action_status = ex.error_code
+                self.last_error_command = ex.command
+            else:
+                self.last_action_status = ex.__class__
+                self.last_error_command = None
             if self._notify_future and not self._notify_future.done():
                 self._notify_future.set_exception(ex)
-                return
             else:
                 raise ex
 
-        elif msg.command == self._const.NukiCommand.STATUS:
-            logger.debug(f"Last action: {msg.payload.status}")
-            self.last_action_status = msg.payload.status
-
-        if self._notify_future and not self._notify_future.done():
-            if msg.command == self._expected_response:
-                self._notify_future.set_result(msg.payload)
-                return
-            if msg.command in self._aggregate_messages:
-                self._messages.append(msg.payload)
-                return
-
-        if msg.command == self._const.NukiCommand.KEYTURNER_STATES:
-            update_config = not self.config or (
-                self.last_state["config_update_count"]
-                != msg.payload["config_update_count"]
-            )
-            self.last_state = msg.payload
-            logger.debug(f"State: {self.last_state}")
-            if update_config:
-                # todo: update config directly?
-                self._poll_needed = True
-            self._fire_callbacks()
-
-        elif msg.command == self._const.NukiCommand.STATUS:
-            logger.info(f"Last action: {msg.payload.status}")
-
-        else:
-            logger.error("%s: Received unsolicited notification: %s", self._name, msg)
-            logger.error("was expecting %s", self._expected_response)
 
     async def _send_command(
         self, characteristic, command,
-        aggregate_messages = list(),
-        expected_response: NukiConst.NukiCommand = None
+        aggregate_messages = None,
+        expected_response: NukiConst.NukiCommand = None,
+        response_retry: int = None
     ):
+        if not response_retry:
+            response_retry = self.response_retry
         async with self._send_cmd_lock:
             msg = None
             last_exc=None
             # Sometimes we do not get a response from the lock, retry several times
-            for j in range(1, self.response_retry + 1):
+            for j in range(1, response_retry + 1):
                 try:
                     if expected_response:
                         self._notify_future = asyncio.Future()
@@ -324,21 +322,23 @@ class NukiDevice:
 
                     # Sometimes the connection to the smart-lock fails, retry several times
                     for i in range(1, self.send_retry + 1):
-                        logger.info(f"Trying to send data. Attempt {i}")
+                        logger.info(f"Trying to send data. Attempt {j},{i}")
                         try:
                             await self.connect()
                             logger.info(f"Sending data to Nuki")
                             await self._client.write_gatt_char(characteristic, command, response=True)
                         except BleakError as exc:
                             last_exc = exc
-                            logger.warning(f"Error while sending data on attempt {i}")
+                            logger.warning(f"Error while sending data on attempt {j},{i}")
                             logger.warning(exc, exc_info=True)
                             await asyncio.sleep(self.retry_interval)
                         else:
-                            logger.info(f"Data sent on attempt {i}")
+                            logger.info(f"Data sent on attempt {j},{i}")
                             break
                     else:
                         logger.error(f'Too many failed attempts when trying to send data. Giving up')
+                        self.last_action_status = last_exc.__class__
+                        self.last_error_command = None
                         raise last_exc
 
                     if expected_response:
@@ -346,7 +346,7 @@ class NukiDevice:
                             msg = await self._notify_future
                 except(CancelledError, TimeoutError) as exc:
                     last_exc = exc
-                    logger.warning(f"Timeout while waiting for response on attempt {j}")
+                    logger.warning(f"Timeout while waiting for response {expected_response} on attempt {j}")
                 else:
                     break
                 finally:
@@ -355,6 +355,8 @@ class NukiDevice:
                     self._aggregate_messages = None
             else:
                 logger.error(f'Too many failed attempts waiting for response. Giving up')
+                self.last_action_status = last_exc.__class__
+                self.last_error_command = None
                 raise last_exc
         return msg
 
@@ -365,21 +367,16 @@ class NukiDevice:
         # https://github.com/dauden1184/RaspiNukiBridge/issues/1#issuecomment-1103969957
         # Haven't researched further the reason and consequences of this exception
         except EOFError:
-            logger.info("EOFError during notification")
+            logger.warning("EOFError during notification")
 
     async def connect(self):
         async with self._connect_lock:
             if not self._client:
                 self.set_ble_device()
             if self._client.is_connected:
-                logger.info("Connected")
+                logger.info("Already connected")
                 return
             await self._client.connect()
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"Services {[str(s) for s in self._client.services]}")
-                logger.debug(
-                    f"Characteristics {[str(v) for v in self._client.services.characteristics.values()]}"
-                )
             if (not self._device_type or not self._const):
                 services = self._client.services
                 if services.get_characteristic(NukiOpenerConst.BLE_PAIRING_CHAR):
@@ -394,7 +391,7 @@ class NukiDevice:
             await self._safe_start_notify(
                 self._const.BLE_CHAR, self._notification_handler
             )
-            logger.info("Connected")
+            logger.info("Connected successfully")
 
     async def disconnect(self):
         if self._client and self._client.is_connected:
@@ -429,7 +426,7 @@ class NukiDevice:
                 logger.debug(f"State: {self.last_state}")
                 self._poll_needed = False
                 self._last_update_state_successful = True
-            if update_config:
+            if update_config or self._poll_needed_config:
                 await self.update_config()
 
     async def lock(self):
@@ -448,7 +445,7 @@ class NukiDevice:
         )
 
     async def lock_action(
-        self, action: NukiConst.LockAction, new_lock_state: NukiConst.LockState = None, name_suffix: str = None
+        self, action: NukiConst.LockAction, new_lock_state: NukiConst.LockState = None, name_suffix: str = None, wait_for_completed: bool =False
     ):
         logger.info(f"Lock action {action}")
         async with self._operation_lock:
@@ -470,6 +467,7 @@ class NukiDevice:
                 self._const.NukiCommand.LOCK_ACTION,
                 payload,
                 expected_response=self._const.NukiCommand.STATUS,
+                response_retry=0,
             )
             logger.info(f"{msg.status}")
         return msg
@@ -492,6 +490,7 @@ class NukiDevice:
             )
             self.config = msg
             logger.debug(f"Config: {self.config}")
+            self._poll_needed_config = False
 
     async def pair(self):
         async with self._operation_lock:
@@ -598,7 +597,7 @@ class NukiDevice:
                 aggregate_messages=[self._const.NukiCommand.LOG_ENTRY,],
                 expected_response=self._const.NukiCommand.STATUS,
             )
-            logger.debug(msg)
+            logger.info(f"request_log_entries: {msg.status}")
             logger.debug(self._messages)
             ret = self._messages
         return ret
