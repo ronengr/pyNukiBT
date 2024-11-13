@@ -582,7 +582,7 @@ class NukiConst:
                 "auth_id" / Bytes(4),
                 "command" / self.NukiCommand,
                 "payload" / Switch(this.command, self.message_types),
-                "unknown" / Bytes(0),
+                "unknown" / Optional(Bytes(0)),
                 "crc" / NukiChecksum(Int16ul,
                                 lambda data: crcCalc.calc(data),
                                 lambda x: x._io.getvalue()[:x._io.tell()])
@@ -593,7 +593,7 @@ class NukiConst:
             return Struct(
                 "command" / self.NukiCommand,
                 "payload" / Switch(this.command, self.message_types),
-                "unknown" / Bytes(0),
+                "unknown" / Optional(Bytes(0)),
                 "crc" / NukiChecksum(Int16ul,
                                 lambda data: crcCalc.calc(data),
                                 lambda x: x._io.getvalue()[:x._io.tell()])
@@ -605,7 +605,7 @@ class NukiConst:
                 "auth_id" / Bytes(4),
                 "command" / self.NukiCommand,
                 "payload" / Switch(this.command, self.message_types),
-                "unknown" / Bytes(0),
+                "unknown" / Optional(Bytes(0)),
                 "crc" / Int16ul,
             )
 
