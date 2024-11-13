@@ -5,31 +5,20 @@ from construct.lib.containers import Container
 import functools
 import crccheck
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
+dontUseOffsetedEnd = False
+
 
 if version.parse(construct.__version__) >= version.parse("2.10.70"):
+    # OffsettedEnd was introduced in 2.10.70
+    # in case we have an older version, we avoid using OffsettedEnd
     from construct import OffsettedEnd
 else:
-    # workaround for some cases in HA where another extension is forcing an older version of construct.
-    class OffsettedEnd(construct.core.Subconstruct):
-        def __init__(self, endoffset, subcon):
-            super().__init__(subcon)
-            self.endoffset = endoffset
-
-        def _parse(self, stream, context, path):
-            endoffset = construct.core.evaluate(self.endoffset, context)
-            curpos = construct.core.stream_tell(stream, path)
-            construct.core.stream_seek(stream, 0, 2, path)
-            endpos = construct.core.stream_tell(stream, path)
-            construct.core.stream_seek(stream, curpos, 0, path)
-            length = endpos + endoffset - curpos
-            substream = construct.core.BytesIOWithOffsets.from_reading(stream, length, path)
-            return self.subcon._parsereport(substream, context, path)
-
-        def _build(self, obj, stream, context, path):
-            return self.subcon._build(obj, stream, context, path)
-
-        def _sizeof(self, context, path):
-            raise construct.core.SizeofError(path=path)
+    logger.warning(f"pyNukiBT requires constructs version 2.10.70 or above, but version {construct.__version__} is installed")
+    logger.warning(f"pyNukiBT will try to work with the old version. Some issues might occur.")
+    dontUseOffsetedEnd = True
 
 
 crcCalc = crccheck.crc.Crc(width=16, poly=0x1021, initvalue=0xffff, reflect_input=False, reflect_output=False, xor_output=0x0, check_result=0x31c3, residue=0x0)
@@ -586,38 +575,73 @@ class NukiConst:
         # self.NukiCommand.SIMPLE_LOCK_ACTION            : self.SimpleLockAction,
     }
 
-    @functools.cached_property
-    def NukiMessage(self):
-        return Struct(
-            "auth_id" / Bytes(4),
-            "command" / self.NukiCommand,
-            "payload" / SoftOffsettedEnd(-2, Switch(this.command, self.message_types)), #limit payload parsing stream, otherwise internal Optional() doesn't work.
-            "unknown" / Optional(OffsettedEnd(-2, GreedyBytes)),
-            "crc" / NukiChecksum(Int16ul,
-                             lambda data: crcCalc.calc(data),
-                             lambda x: x._io.getvalue()[:x._io.tell()])
-        )
+    if dontUseOffsetedEnd:
+        @functools.cached_property
+        def NukiMessage(self):
+            return Struct(
+                "auth_id" / Bytes(4),
+                "command" / self.NukiCommand,
+                "payload" / Switch(this.command, self.message_types),
+                "unknown" / Bytes(0),
+                "crc" / NukiChecksum(Int16ul,
+                                lambda data: crcCalc.calc(data),
+                                lambda x: x._io.getvalue()[:x._io.tell()])
+            )
 
-    @functools.cached_property
-    def NukiUnencryptedMessage(self):
-        return Struct(
-            "command" / self.NukiCommand,
-            "payload" / SoftOffsettedEnd(-2, Switch(this.command, self.message_types)),
-            "unknown" / Optional(OffsettedEnd(-2, GreedyBytes)),
-            "crc" / NukiChecksum(Int16ul,
-                             lambda data: crcCalc.calc(data),
-                             lambda x: x._io.getvalue()[:x._io.tell()])
-        )
+        @functools.cached_property
+        def NukiUnencryptedMessage(self):
+            return Struct(
+                "command" / self.NukiCommand,
+                "payload" / Switch(this.command, self.message_types),
+                "unknown" / Bytes(0),
+                "crc" / NukiChecksum(Int16ul,
+                                lambda data: crcCalc.calc(data),
+                                lambda x: x._io.getvalue()[:x._io.tell()])
+            )
 
-    @functools.cached_property
-    def NukiMessage2(self):
-        return Struct(
-            "auth_id" / Bytes(4),
-            "command" / self.NukiCommand,
-            "payload" / SoftOffsettedEnd(-2, Switch(this.command, self.message_types)),
-            "unknown" / Optional(OffsettedEnd(-2, GreedyBytes)),
-            "crc" / Int16ul,
-        )
+        @functools.cached_property
+        def NukiMessage2(self):
+            return Struct(
+                "auth_id" / Bytes(4),
+                "command" / self.NukiCommand,
+                "payload" / Switch(this.command, self.message_types),
+                "unknown" / Bytes(0),
+                "crc" / Int16ul,
+            )
+
+    else:
+        @functools.cached_property
+        def NukiMessage(self):
+            return Struct(
+                "auth_id" / Bytes(4),
+                "command" / self.NukiCommand,
+                "payload" / SoftOffsettedEnd(-2, Switch(this.command, self.message_types)), #limit payload parsing stream, otherwise internal Optional() doesn't work.
+                "unknown" / Optional(OffsettedEnd(-2, GreedyBytes)),
+                "crc" / NukiChecksum(Int16ul,
+                                lambda data: crcCalc.calc(data),
+                                lambda x: x._io.getvalue()[:x._io.tell()])
+            )
+
+        @functools.cached_property
+        def NukiUnencryptedMessage(self):
+            return Struct(
+                "command" / self.NukiCommand,
+                "payload" / SoftOffsettedEnd(-2, Switch(this.command, self.message_types)),
+                "unknown" / Optional(OffsettedEnd(-2, GreedyBytes)),
+                "crc" / NukiChecksum(Int16ul,
+                                lambda data: crcCalc.calc(data),
+                                lambda x: x._io.getvalue()[:x._io.tell()])
+            )
+
+        @functools.cached_property
+        def NukiMessage2(self):
+            return Struct(
+                "auth_id" / Bytes(4),
+                "command" / self.NukiCommand,
+                "payload" / SoftOffsettedEnd(-2, Switch(this.command, self.message_types)),
+                "unknown" / Optional(OffsettedEnd(-2, GreedyBytes)),
+                "crc" / Int16ul,
+            )
 
     @functools.cached_property
     def BatteryReport(self):
@@ -1001,39 +1025,40 @@ class NukiChecksum(construct.Checksum):
             )
         return hash1
 
-class SoftOffsettedEnd(OffsettedEnd):
-    r"""
-    Parses all bytes in the stream till `EOF plus a negative endoffset` is reached or sub-construct has finished.
+if not dontUseOffsetedEnd:
+    class SoftOffsettedEnd(OffsettedEnd):
+        r"""
+        Parses all bytes in the stream till `EOF plus a negative endoffset` is reached or sub-construct has finished.
 
-    Same as OffsettedEnd, except it only consumes the bytes that where actually parsed by the sub-construct.
+        Same as OffsettedEnd, except it only consumes the bytes that where actually parsed by the sub-construct.
 
-    This is useful if there is another variable sized filed after SoftOffsettedEnd.
-    """
-    def __init__(self, endoffset, subcon):
-        super().__init__(endoffset, subcon)
-        if isinstance(self.subcon, Struct):
-            self._parse = self._parse_struct
-        else:
-            self._parse = self._parse_other
+        This is useful if there is another variable sized filed after SoftOffsettedEnd.
+        """
+        def __init__(self, endoffset, subcon):
+            super().__init__(endoffset, subcon)
+            if isinstance(self.subcon, Struct):
+                self._parse = self._parse_struct
+            else:
+                self._parse = self._parse_other
 
-    def _parse(self, stream, context, path):
-        raise NotImplementedError
+        def _parse(self, stream, context, path):
+            raise NotImplementedError
 
-    def _parse_struct(self, stream, context, path):
-        ret = super()._parse(stream, context, path)
-        stream.seek(ret._io.tell(), 0)
-        return ret
+        def _parse_struct(self, stream, context, path):
+            ret = super()._parse(stream, context, path)
+            stream.seek(ret._io.tell(), 0)
+            return ret
 
-    def _parse_other(self, stream, context, path):
-        tmp_subcon = self.subcon
-        class tmpclass():
-            self.substream = None
-            def _parsereport(self, stream, context, path):
-                self.substream = stream
-                return tmp_subcon._parsereport(stream, context, path)
+        def _parse_other(self, stream, context, path):
+            tmp_subcon = self.subcon
+            class tmpclass():
+                self.substream = None
+                def _parsereport(self, stream, context, path):
+                    self.substream = stream
+                    return tmp_subcon._parsereport(stream, context, path)
 
-        self.subcon = tmpclass()
-        ret = super()._parse(stream, context, path)
-        stream.seek(self.subcon.substream.tell(), 0)
-        self.subcon = tmp_subcon
-        return ret
+            self.subcon = tmpclass()
+            ret = super()._parse(stream, context, path)
+            stream.seek(self.subcon.substream.tell(), 0)
+            self.subcon = tmp_subcon
+            return ret
