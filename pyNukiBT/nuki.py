@@ -2,7 +2,6 @@ import asyncio
 import hashlib
 import logging
 import hmac
-import time
 import construct
 from asyncio import CancelledError, TimeoutError
 from typing import Callable

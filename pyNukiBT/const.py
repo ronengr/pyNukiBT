@@ -37,7 +37,11 @@ class NukiDateTimeConstruct(Adapter):
         super().__init__(st)
 
     def _decode(self, obj, context, path):
-        return datetime(obj.year, obj.month, obj.day, obj.hour, obj.minute, obj.second)
+        try:
+            return datetime(obj.year, obj.month, obj.day, obj.hour, obj.minute, obj.second)
+        except ValueError:
+            return None
+
 
     def _encode(self, obj, context, path):
         return Container(year=obj.year, month=obj.month, day=obj.day, hour=obj.hour, minute=obj.minute, second=obj.second)
@@ -481,7 +485,8 @@ class NukiConst:
             "trigger" / self.ActionTrigger,
             "flags" / Int8ul,
             "completion_status" / self.LockActionCompletionStatus,
-            "padding" / Optional(Padding(1)), #Nuki3 has padding, Nuki4 doesn't
+            Optional(Padding(1)), #Nuki3 has 1 padding, others may not.
+            Optional(Padding(3)), #Nuki4 padding
         )
 
     @functools.cached_property
@@ -700,10 +705,11 @@ class NukiLockConst(NukiConst):
         "last_lock_action" / LockAction,
         "last_lock_action_trigger" / NukiConst.ActionTrigger,
         "last_lock_action_completion_status" / NukiConst.LockActionCompletionStatus,
-        "door_sensor_state" / NukiConst.DoorsensorState,
-        "nightmode_active" / Int16ul,
+        "door_sensor_state" / Optional(NukiConst.DoorsensorState),
+        "nightmode_active" / Optional(Int16ul),
         "accessory_battery_state" / Optional(Int8ul),
         Optional(Padding(4)), #this doesn't exist in the documentation, but we see it in real world communications
+        Optional(Padding(1)), #Nuki4 has one more.
     )
 
     Config = Struct(
@@ -890,6 +896,7 @@ class NukiOpenerConst(NukiConst):
         "undocumented" / Int8ul,
         "undocumented2" / Int8ul,
         "has_keypad_v2" / Int8ul,
+        Optional(Padding(1)), #Nuki4 padding
     )
 
     NewConfig = Struct(
