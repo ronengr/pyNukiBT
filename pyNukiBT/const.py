@@ -736,9 +736,10 @@ class NukiLockConst(NukiConst):
         "hardware_revision" / Int8ul[2],
         "homekit_status" / Int8ul,
         "timezone_id" / NukiConst.TimeZoneId,
-        "undocumented" / Int8ul,
-        "undocumented2" / Int8ul,
-        "has_keypad_v2" / Int8ul,
+        "undocumented" / Optional(Int8ul),
+        "undocumented2" / Optional(Int8ul),
+        "has_keypad_v2" / Optional(Int8ul),
+        Optional(Padding(1)), #Nuki4 padding
     )
 
     NewConfig = Struct(
