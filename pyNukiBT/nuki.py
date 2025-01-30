@@ -8,6 +8,7 @@ from typing import Callable
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from bleak.backends.characteristic import BleakGATTCharacteristic
+from warnings import deprecated
 
 import async_timeout
 
@@ -149,6 +150,7 @@ class NukiDevice:
         message += crc
         return message
 
+    @deprecated("use send_encrypted_command instead")
     async def _send_encrtypted_command(
         self,
         cmd: NukiConst.NukiCommand,
@@ -157,6 +159,17 @@ class NukiDevice:
         expected_response: NukiConst.NukiCommand = None,
         response_retry: int = None,
     ):
+        return await self._send_encrypted_command(cmd, payload, aggregate_messages, expected_response, response_retry)
+
+    async def _send_encrypted_command(
+        self,
+        cmd: NukiConst.NukiCommand,
+        payload: dict,
+        aggregate_messages = None,
+        expected_response: NukiConst.NukiCommand = None,
+        response_retry: int = None,
+    ):
+        logger.info(f"Sending encrypted command: {self._auth_id.hex()} {cmd} {payload}")
         unencrypted = self._const.NukiMessage.build(
             {
                 "auth_id": self._auth_id,
@@ -415,7 +428,7 @@ class NukiDevice:
         async with self._update_state_lock:
             async with self._operation_lock:
                 self._last_update_state_successful = False
-                msg = await self._send_encrtypted_command(
+                msg = await self._send_encrypted_command(
                     self._const.NukiCommand.REQUEST_DATA,
                     {"command": self._const.NukiCommand.KEYTURNER_STATES},
                     expected_response=self._const.NukiCommand.KEYTURNER_STATES,
@@ -452,7 +465,7 @@ class NukiDevice:
         async with self._operation_lock:
             if new_lock_state:
                 self.last_state["lock_state"] = new_lock_state
-            msg = await self._send_encrtypted_command(
+            msg = await self._send_encrypted_command(
                 self._const.NukiCommand.REQUEST_DATA,
                 {"command": self._const.NukiCommand.CHALLENGE},
                 expected_response=self._const.NukiCommand.CHALLENGE,
@@ -464,7 +477,7 @@ class NukiDevice:
                 "name_suffix": name_suffix,
                 "nonce": msg.nonce,
             }
-            msg = await self._send_encrtypted_command(
+            msg = await self._send_encrypted_command(
                 self._const.NukiCommand.LOCK_ACTION,
                 payload,
                 expected_response=self._const.NukiCommand.STATUS,
@@ -493,12 +506,12 @@ class NukiDevice:
             logger.info("get config already in progress")
             return
         async with self._operation_lock, self._update_config_lock:
-            msg = await self._send_encrtypted_command(
+            msg = await self._send_encrypted_command(
                 self._const.NukiCommand.REQUEST_DATA,
                 {"command": self._const.NukiCommand.CHALLENGE},
                 expected_response=self._const.NukiCommand.CHALLENGE,
             )
-            msg = await self._send_encrtypted_command(
+            msg = await self._send_encrypted_command(
                 self._const.NukiCommand.REQUEST_CONFIG,
                 {"nonce": msg["nonce"]},
                 expected_response=self._const.NukiCommand.CONFIG,
@@ -568,7 +581,7 @@ class NukiDevice:
     async def verify_security_pin(self, security_pin):
         logger.info(f"verify security PIN")
         async with self._operation_lock:
-            msg = await self._send_encrtypted_command(
+            msg = await self._send_encrypted_command(
                 self._const.NukiCommand.REQUEST_DATA,
                 {"command": self._const.NukiCommand.CHALLENGE},
                 expected_response=self._const.NukiCommand.CHALLENGE,
@@ -578,7 +591,7 @@ class NukiDevice:
                 "security_pin": security_pin,
             }
             try:
-                msg = await self._send_encrtypted_command(
+                msg = await self._send_encrypted_command(
                     self._const.NukiCommand.VERIFY_SECURITY_PIN,
                     payload,
                     expected_response=self._const.NukiCommand.STATUS,
@@ -593,7 +606,7 @@ class NukiDevice:
     async def request_log_entries(self, security_pin, sort_order=0x01, count=1, start_index=0):
         logger.info(f"request {count} log entries, start={start_index}")
         async with self._operation_lock:
-            msg = await self._send_encrtypted_command(
+            msg = await self._send_encrypted_command(
                 self._const.NukiCommand.REQUEST_DATA,
                 {"command": self._const.NukiCommand.CHALLENGE},
                 expected_response=self._const.NukiCommand.CHALLENGE,
@@ -606,7 +619,7 @@ class NukiDevice:
                 "nonce": msg.nonce,
                 "security_pin": security_pin,
             }
-            msg = await self._send_encrtypted_command(
+            msg = await self._send_encrypted_command(
                 self._const.NukiCommand.REQUEST_LOG_ENTRIES,
                 payload,
                 aggregate_messages=[self._const.NukiCommand.LOG_ENTRY,],
