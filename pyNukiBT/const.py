@@ -867,8 +867,6 @@ class NukiOpenerConst(NukiConst):
         "last_lock_action_trigger" / NukiConst.ActionTrigger,
         "last_lock_action_completion_status" / NukiConst.LockActionCompletionStatus,
         "door_sensor_state" / NukiConst.DoorsensorState,
-        # "nightmode_active" / Int16ul,
-        # "accessory_battery_state" / Int8ul,
     )
 
     Config = Struct(
@@ -893,10 +891,6 @@ class NukiOpenerConst(NukiConst):
         "firmware_version" / Int8ul[3],
         "hardware_revision" / Int8ul[2],
         "timezone_id" / NukiConst.TimeZoneId,
-        "undocumented" / Int8ul,
-        "undocumented2" / Int8ul,
-        "has_keypad_v2" / Int8ul,
-        Optional(Padding(1)), #Nuki4 padding
     )
 
     NewConfig = Struct(
@@ -928,7 +922,6 @@ class NukiOpenerConst(NukiConst):
         "electric_strike_duration" / Int16ul,
         "disable_rto_after_ring" / Int8ul,
         "rto_timeout" / Int8ul,
-        "unknown" / Int8ul,
         "doorbell_suppression" / Int8ul,
         "doorbell_suppression_duration" / Int16ul,
         "sound_ring" / Int8ul,
@@ -952,7 +945,6 @@ class NukiOpenerConst(NukiConst):
         "electric_strike_duration" / Int16ul,
         "disable_rto_after_ring" / Int8ul,
         "rto_timeout" / Int8ul,
-        "unknown" / Int8ul,
         "doorbell_suppression" / Int8ul,
         "doorbell_suppression_duration" / Int16ul,
         "sound_ring" / Int8ul,
@@ -1078,6 +1070,8 @@ class SoftOffsettedEnd(OffsettedEnd):
             def _parsereport(self, stream, context, path):
                 self.substream = stream
                 return tmp_subcon._parsereport(stream, context, path)
+            def _build(self, obj, stream, context, path):
+                return tmp_subcon._build(obj, stream, context, path)
 
         self.subcon = tmpclass()
         ret = super()._parse(stream, context, path)
