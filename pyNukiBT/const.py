@@ -359,6 +359,12 @@ class NukiConst:
         "security_pin" / Int16ul,
     )
 
+    UpdateTime = Struct(
+        "time" / NukiDateTime,
+        "nonce" / Bytes(32),
+        "security_pin" / Int16ul,
+    )
+
     AddKeypadCode = Struct(
         "code" / Int32ul, #needs to be 6 digits
         "name" / PaddedString(20, "utf8"),
@@ -550,7 +556,7 @@ class NukiConst:
         # self.NukiCommand.AUTHORIZATION_ID_CONFIRMATION : self.AuthorizationIdConfirmation,
         # self.NukiCommand.AUTHORIZATION_ID_INVITE       : self.AuthorizationIdInvite,
         self.NukiCommand.VERIFY_SECURITY_PIN           : self.VerifySecurityPin,
-        # self.NukiCommand.UPDATE_TIME                   : self.UpdateTime,
+        self.NukiCommand.UPDATE_TIME                   : self.UpdateTime,
         # self.NukiCommand.UPDATE_AUTHORIZATION          : self.UpdateAuthorization,
         # self.NukiCommand.AUTHORIZATION_ENTRY_COUNT     : self.AuthorizationEntryCount,
         # self.NukiCommand.START_BUS_SIGNAL_RECORDING    : self.StartBusSignalRecording,

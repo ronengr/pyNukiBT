@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, UTC
 import hashlib
 import logging
 import hmac
@@ -629,3 +630,28 @@ class NukiDevice:
             logger.debug(self._messages)
             ret = self._messages
         return ret
+
+    async def update_nuki_time(self, security_pin, new_time=None):
+        logger.info(f'Update Nuki time to {new_time}')
+        async with self._operation_lock:
+            msg = await self._send_encrypted_command(
+                self._const.NukiCommand.REQUEST_DATA,
+                {"command": self._const.NukiCommand.CHALLENGE},
+                expected_response=self._const.NukiCommand.CHALLENGE,
+            )
+            if not new_time:
+                # Get current time as late as possible, to avoid large delays between getting current time and sending
+                # that time to the lock (which will case a time difference).
+                new_time=datetime.now(UTC)
+            payload = {
+                "time": new_time,
+                "nonce": msg.nonce,
+                "security_pin": security_pin,
+            }
+            msg = await self._send_encrypted_command(
+                self._const.NukiCommand.UPDATE_TIME,
+                payload,
+                expected_response=self._const.NukiCommand.STATUS,
+            )
+            logger.info(f"update_nuki_time: {msg.status}")
+        return msg
