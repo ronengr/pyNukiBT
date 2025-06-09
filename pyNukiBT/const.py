@@ -704,14 +704,14 @@ class NukiLockConst(NukiConst):
 
     KeyturnerStates = Struct(
         "nuki_state" / NukiConst.State,
-        "lock_state" / LockState,
+        "lock_state" / self.LockState,
         "trigger" / NukiConst.ActionTrigger,
         "current_time" / NukiConst.NukiDateTime,
         "timezone_offset" / Int16sl,
         "critical_battery_state" / Int8ul,
         "config_update_count" / Int8ul,
         "lock_n_go_timer" / Int8ul,
-        "last_lock_action" / LockAction,
+        "last_lock_action" / self.LockAction,
         "last_lock_action_trigger" / NukiConst.ActionTrigger,
         "last_lock_action_completion_status" / NukiConst.LockActionCompletionStatus,
         "door_sensor_state" / Optional(NukiConst.DoorsensorState),
@@ -870,14 +870,14 @@ class NukiOpenerConst(NukiConst):
 
     KeyturnerStates = Struct(
         "nuki_state" / NukiConst.State,
-        "lock_state" / LockState,
+        "lock_state" / self.LockState,
         "trigger" / NukiConst.ActionTrigger,
         "current_time" / NukiConst.NukiDateTime,
         "timezone_offset" / Int16sl,
         "critical_battery_state" / Int8ul,
         "config_update_count" / Int8ul,
         "ring_to_open_timer" / Int8ul,
-        "last_lock_action" / LockAction,
+        "last_lock_action" / self.LockAction,
         "last_lock_action_trigger" / NukiConst.ActionTrigger,
         "last_lock_action_completion_status" / NukiConst.LockActionCompletionStatus,
         "door_sensor_state" / NukiConst.DoorsensorState,
