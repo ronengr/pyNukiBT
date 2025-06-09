@@ -176,7 +176,8 @@ class NukiDevice:
                 "auth_id": self._auth_id,
                 "command": cmd,
                 "payload": payload,
-            }
+            },
+            context={"device_type": self._device_type},
         )
         nonce = nacl.utils.random(24)
         encrypted = self._box.encrypt(unencrypted, nonce)[24:]
