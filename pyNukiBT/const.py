@@ -278,6 +278,13 @@ class NukiConst:
         DOOR_SENSOR_LOGGING_ENABLED_DISABLED = 0x07,
     )
 
+    LogDoorState = Enum(Int8ul,
+        DOOR_OPEN = 0x00,
+        DOOR_CLOSED = 0x01,
+        SENSOR_JAMMED = 0x02,
+        SENSOR_TAMPERED = 0x03,
+    )
+
     BatteryType = Enum(Int8ul,
         ALKALI       = 0X00,
         ACCUMULATORS = 0X01,
@@ -509,7 +516,7 @@ class NukiConst:
         )
 
     LogEntryExt4 = Struct(
-        "door_status" / Int8ul,
+        "door_status" / NukiConst.LogDoorState,
         "padding" / Optional(Padding(4)), #Nuki3 has padding, Nuki4 doesn't
     )
 
