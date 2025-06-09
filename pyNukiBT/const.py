@@ -114,9 +114,9 @@ class NukiConst:
         DOOR_OPENED = 0x03,
         DOOR_STATE_UNKOWN = 0x04,
         CALIBRATING = 0x05,
-        UNCALIBRATED = 0x16,
-        REMOVED = 0x240,
-        UNKOWN = 0x255,
+        UNCALIBRATED = 0x10,
+        REMOVED = 0xF0,
+        UNKOWN = 0xFF,
     )
 
     LockActionCompletionStatus = Enum(Int8ul,
