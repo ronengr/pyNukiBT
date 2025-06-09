@@ -130,6 +130,8 @@ class NukiConst:
         CLUTCH_FAILURE = 0x06,
         MOTOR_POWER_FAILURE = 0x07,
         INCOMPLETE = 0x08,
+        INVALID_CODE = 0xE0,
+        INVALID_FINGERPRINT = 0xE1,
         OTHER_ERROR = 0xFE,
         UNKNOWN = 0xFF,
     )
@@ -188,6 +190,7 @@ class NukiConst:
         UPDATE_KEYPAD_CODE            = 0x0046,
         REMOVE_KEYPAD_CODE            = 0x0047,
         KEYPAD_ACTION                 = 0x0048,
+        AUTHORIZATION_INFO            = 0x004C,
         CONTINUOUS_MODE_ACTION        = 0x0057, # Opener only
         SIMPLE_LOCK_ACTION            = 0x0100,
     )
@@ -714,8 +717,12 @@ class NukiLockConst(NukiConst):
         "door_sensor_state" / Optional(NukiConst.DoorsensorState),
         "nightmode_active" / Optional(Int16ul),
         "accessory_battery_state" / Optional(Int8ul),
-        Optional(Padding(4)), #this doesn't exist in the documentation, but we see it in real world communications
-        Optional(Padding(1)), #Nuki4 has one more.
+        "remote_access_status" / Optional(Int8ul),
+        "remote_access_ble_connection_strength" / Optional(Int8ul),
+        "remote_access_wifi_connection_strength" / Optional(Int8ul),
+        "remote_access_wifi_connection_status" / Optional(Int8ul),
+        "mqtt_api_connection_status" / Optional(Int8ul),
+        "thread_connection_status" / Optional(Int8ul),
     )
 
     Config = Struct(
