@@ -398,16 +398,22 @@ class NukiDevice:
                 if services.get_characteristic(NukiOpenerConst.BLE_PAIRING_CHAR):
                     self._device_type = NukiConst.NukiDeviceType.OPENER
                     self._const = NukiOpenerConst
-                else:
+                elif services.get_characteristic(NukiLockUltraConst.BLE_PAIRING_CHAR):
+                    self._device_type = NukiConst.NukiDeviceType.SMARTLOCK_5
+                    self._const = NukiLockUltraConst
+                elif services.get_characteristic(NukiLockConst.BLE_PAIRING_CHAR):
                     self._device_type = NukiConst.NukiDeviceType.SMARTLOCK_1_2
                     self._const = NukiLockConst
+                else:
+                    logger.debug("Unsupported characteristic")
             await self._safe_start_notify(
                 self._const.BLE_PAIRING_CHAR, self._notification_handler
             )
             await self._safe_start_notify(
                 self._const.BLE_CHAR, self._notification_handler
             )
-            logger.info("Connected successfully")
+            logger.error("Connected successfully")
+            raise
 
     async def disconnect(self):
         if self._client and self._client.is_connected:

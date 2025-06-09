@@ -711,9 +711,7 @@ class NukiConst:
             "security_pin" / self.NukiSecurityPin,
         )
 
-class NukiLockConst(NukiConst):
-    BLE_PAIRING_SERVICE = "a92ee100-5501-11e4-916c-0800200c9a66"
-    BLE_PAIRING_CHAR =    "a92ee101-5501-11e4-916c-0800200c9a66"
+class NukiLockBaseConst(NukiConst):
     BLE_SERVICE =         "a92ee200-5501-11e4-916c-0800200c9a66"
     BLE_CHAR =            "a92ee202-5501-11e4-916c-0800200c9a66"
 
@@ -886,6 +884,13 @@ class NukiLockConst(NukiConst):
             "security_pin" / self.NukiSecurityPin,
         )
 
+class NukiLockUltraConst(NukiLockBaseConst):
+    BLE_PAIRING_SERVICE = "a92ee300-5501-11e4-916c-0800200c9a66"
+    BLE_PAIRING_CHAR =    "a92ee301-5501-11e4-916c-0800200c9a66"
+
+class NukiLockConst(NukiLockBaseConst):
+    BLE_PAIRING_SERVICE = "a92ee100-5501-11e4-916c-0800200c9a66"
+    BLE_PAIRING_CHAR =    "a92ee101-5501-11e4-916c-0800200c9a66"
 
 class NukiOpenerConst(NukiConst):
     BLE_PAIRING_SERVICE = "a92ae100-5501-11e4-916c-0800200c9a66"
