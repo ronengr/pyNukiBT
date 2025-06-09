@@ -45,6 +45,7 @@ class NukiDateTimeConstruct(Adapter):
 
     def _encode(self, obj, context, path):
         return Container(year=obj.year, month=obj.month, day=obj.day, hour=obj.hour, minute=obj.minute, second=obj.second)
+
 class NukiConst:
     ErrorCode = Enum(Int8ul,
         #General error codes
@@ -653,7 +654,6 @@ class NukiConst:
             "nonce" / Bytes(32),
             "security_pin" / Int16ul,
         )
-
 
 class NukiLockConst(NukiConst):
     BLE_PAIRING_SERVICE = "a92ee100-5501-11e4-916c-0800200c9a66"
