@@ -361,6 +361,36 @@ class NukiConst:
             },
         )
 
+    @functools.cached_property
+    def AuthorizationData1234(self):
+        return Struct(
+            "authenticator" / Bytes(32),
+            "type_id" / Int8ul,
+            "app_id" / Int32ul,
+            "name" / PaddedString(32, "utf8"),
+            "nonce" / Bytes(32),
+        )
+
+    @functools.cached_property
+    def AuthorizationData5(self):
+        return Struct(
+            "app_id" / Int32ul,
+            "name" / PaddedString(32, "utf8"),
+            "security_pin" / Int32ul,
+        )
+
+
+    @functools.cached_property
+    def AuthorizationData(self):
+        return Switch(
+            lambda data: data.device_type,
+            {
+                self.NukiDeviceType.SMARTLOCK_1_2: self.AuthorizationData1234,
+                self.NukiDeviceType.SMARTLOCK_3: self.AuthorizationIdData1234,
+                self.NukiDeviceType.SMARTLOCK_5: self.AuthorizationIdData5,
+            },
+        )
+
     NukiCommandStatus = Struct(
         "status" / StatusCode
     )
@@ -513,6 +543,10 @@ class NukiConst:
             "security_pin" / self.NukiSecurityPin,
         )
 
+    AuthorizationInfo = Struct(
+        "security_pin_info" / Optional(Int8ul),
+    )
+
     RequestData = Struct(
         "command" / NukiCommand
     )
@@ -591,7 +625,7 @@ class NukiConst:
         self.NukiCommand.PUBLIC_KEY                    : self.PublicKey,
         self.NukiCommand.CHALLENGE                     : self.Challenge,
         # self.NukiCommand.AUTHORIZATION_AUTHENTICATOR   : self.AuthorizationAuthenticator,
-        # self.NukiCommand.AUTHORIZATION_DATA            : self.AuthorizationData,
+        self.NukiCommand.AUTHORIZATION_DATA            : self.AuthorizationData,
         self.NukiCommand.AUTHORIZATION_ID              : self.AuthorizationId,
         # self.NukiCommand.REMOVE_USER_AUTHORIZATION     : self.RemoveUserAuthorization,
         # self.NukiCommand.REQUEST_AUTHORIZATION_ENTRIES : self.RequestAuthorizationEntries,
@@ -639,6 +673,7 @@ class NukiConst:
         # self.NukiCommand.UPDATE_KEYPAD_CODE            : self.UpdateKeypadCode,
         # self.NukiCommand.REMOVE_KEYPAD_CODE            : self.RemoveKeypadCode,
         # self.NukiCommand.KEYPAD_ACTION                 : self.KeypadAction,
+        self.NukiCommand.AUTHORIZATION_INFO            : self.AuthorizationInfo,
         # self.NukiCommand.CONTINUOUS_MODE_ACTION        : self.ContinuousModeAction,
         # self.NukiCommand.SIMPLE_LOCK_ACTION            : self.SimpleLockAction,
     }

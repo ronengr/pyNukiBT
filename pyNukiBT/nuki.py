@@ -169,11 +169,12 @@ class NukiDevice:
         aggregate_messages = None,
         expected_response: NukiConst.NukiCommand = None,
         response_retry: int = None,
+        auth_id: int = self._auth_id,
     ):
         logger.info(f"Sending encrypted command: {self._auth_id.hex()} {cmd} {payload}")
         unencrypted = self._const.NukiMessage.build(
             {
-                "auth_id": self._auth_id,
+                "auth_id": auth_id,
                 "command": cmd,
                 "payload": payload,
             },
@@ -528,7 +529,7 @@ class NukiDevice:
             logger.debug(f"Config: {self.config}")
             self._poll_needed_config = False
 
-    async def pair(self):
+    async def pair(self, security_pin):
         async with self._operation_lock:
             payload = self._const.NukiCommand.build(self._const.NukiCommand.PUBLIC_KEY)
             cmd = self._prepare_command(self._const.NukiCommand.REQUEST_DATA, payload)
@@ -553,36 +554,64 @@ class NukiDevice:
             cmd = self._prepare_command(
                 self._const.NukiCommand.AUTHORIZATION_AUTHENTICATOR, payload
             )
-            msg = await self._send_command(
-                self._const.BLE_PAIRING_CHAR, cmd, expected_response=self._const.NukiCommand.CHALLENGE
-            )
+            if self._device_type != NukiConst.NukiDeviceType.SMARTLOCK_5:
+                msg = await self._send_command(
+                    self._const.BLE_PAIRING_CHAR, cmd, expected_response=self._const.NukiCommand.CHALLENGE
+                )
+            else:
+                try:
+                        msg = await self._send_command(
+                            self._const.BLE_PAIRING_CHAR, cmd, expected_response=self._const.NukiCommand.AUTHORIZATION_INFO
+                        )
+                except TimeoutError:
+                    logger.error(f"No security pin set")
+                    raise
             app_id = self._app_id.to_bytes(4, "little")
             type_id = self._const.NukiClientType.build(self._client_type)
             name = self._name.encode("utf-8").ljust(32, b"\0")
             nonce = nacl.utils.random(32)
             value_r = type_id + app_id + name + nonce + msg["nonce"]
-            payload = hmac.new(
-                self._shared_key, msg=value_r, digestmod=hashlib.sha256
-            ).digest()
-            payload += type_id + app_id + name + nonce
-            cmd = self._prepare_command(self._const.NukiCommand.AUTHORIZATION_DATA, payload)
-            msg = await self._send_command(
-                self._const.BLE_PAIRING_CHAR,
-                cmd,
-                expected_response=self._const.NukiCommand.AUTHORIZATION_ID,
-            )
-            self._auth_id = msg["auth_id"]
-            value_r = self._auth_id + msg["nonce"]
-            payload = hmac.new(
-                self._shared_key, msg=value_r, digestmod=hashlib.sha256
-            ).digest()
-            payload += self._auth_id
-            cmd = self._prepare_command(
-                self._const.NukiCommand.AUTHORIZATION_ID_CONFIRMATION, payload
-            )
-            msg = await self._send_command(
-                self._const.BLE_PAIRING_CHAR, cmd, expected_response=self._const.NukiCommand.STATUS
-            )
+            if self._device_type != NukiConst.NukiDeviceType.SMARTLOCK_5:
+                payload = hmac.new(
+                    self._shared_key, msg=value_r, digestmod=hashlib.sha256
+                ).digest()
+                payload += type_id + app_id + name + nonce
+
+                cmd = self._prepare_command(self._const.NukiCommand.AUTHORIZATION_DATA, payload)
+                msg = await self._send_command(
+                    self._const.BLE_PAIRING_CHAR,
+                    cmd,
+                    expected_response=self._const.NukiCommand.AUTHORIZATION_ID,
+                )
+                self._auth_id = msg["auth_id"]
+                value_r = self._auth_id + msg["nonce"]
+                payload = hmac.new(
+                    self._shared_key, msg=value_r, digestmod=hashlib.sha256
+                ).digest()
+                payload += self._auth_id
+                cmd = self._prepare_command(
+                    self._const.NukiCommand.AUTHORIZATION_ID_CONFIRMATION, payload
+                )
+                msg = await self._send_command(
+                    self._const.BLE_PAIRING_CHAR, cmd, expected_response=self._const.NukiCommand.STATUS
+                )
+            else:
+                try:
+                    msg = await self._send_encrypted_command(
+                        self._const.NukiCommand.AUTHORIZATION_DATA,
+                        {
+                            "type_id": type_id,
+                            "app_id": app_id,
+                            "security_pin": security_pin,
+                        },
+                        expected_response=self._const.NukiCommand.AUTHORIZATION_ID,
+                        response_retry=0,
+                        auth_id=0x7FFFFFFF,
+                    )
+                except TimeoutError:
+                        logger.error(f"Failed to authenticate with lock {msg.status}")
+                        raise
+                self._auth_id = msg["auth_id"]
             await self.disconnect()
         return {"nuki_public_key": self._nuki_public_key, "auth_id": self._auth_id}
 
