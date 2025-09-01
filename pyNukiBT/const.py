@@ -1,26 +1,6 @@
 from packaging import version
 import construct
-from construct import (
-    Bit,
-    BitStruct,
-    Optional,
-    Padding,
-    Struct,
-    Byte,
-    Enum,
-    Int8ul,
-    Int16ul,
-    Int32ul,
-    Int8sl,
-    Int16sl,
-    Float32l,
-    PaddedString,
-    Bytes,
-    Switch,
-    GreedyBytes,
-    this,
-    Adapter,
-)
+from construct import Bit, BitStruct, Optional, Padding, Struct, Byte, Enum, Int8ul, Int16ul, Int32ul, Int8sl, Int16sl, Float32l, PaddedString, Bytes, Switch, GreedyBytes, this, Adapter
 from construct.lib.containers import Container
 import functools
 import crccheck
@@ -36,28 +16,15 @@ if version.parse(construct.__version__) >= version.parse("2.10.70"):
     # in case we have an older version, we avoid using OffsettedEnd
     from construct import OffsettedEnd
 else:
-    logger.warning(
-        f"pyNukiBT requires construct version 2.10.70 or above, but version {construct.__version__} is installed"
-    )
-    logger.warning(
-        f"pyNukiBT will try to work with the old version. Some issues might occur."
-    )
+    logger.warning(f"pyNukiBT requires construct version 2.10.70 or above, but version {construct.__version__} is installed")
+    logger.warning(f"pyNukiBT will try to work with the old version. Some issues might occur.")
     useLocalOffsetedEnd = True
 
 
-crcCalc = crccheck.crc.Crc(
-    width=16,
-    poly=0x1021,
-    initvalue=0xFFFF,
-    reflect_input=False,
-    reflect_output=False,
-    xor_output=0x0,
-    check_result=0x31C3,
-    residue=0x0,
-)
-
+crcCalc = crccheck.crc.Crc(width=16, poly=0x1021, initvalue=0xffff, reflect_input=False, reflect_output=False, xor_output=0x0, check_result=0x31c3, residue=0x0)
 
 class NukiDateTimeConstruct(Adapter):
+
     def __init__(self):
         st = Struct(
             "year" / Int16ul,
@@ -71,284 +38,261 @@ class NukiDateTimeConstruct(Adapter):
 
     def _decode(self, obj, context, path):
         try:
-            return datetime(
-                obj.year, obj.month, obj.day, obj.hour, obj.minute, obj.second
-            )
+            return datetime(obj.year, obj.month, obj.day, obj.hour, obj.minute, obj.second)
         except ValueError:
             return None
 
+
     def _encode(self, obj, context, path):
-        return Container(
-            year=obj.year,
-            month=obj.month,
-            day=obj.day,
-            hour=obj.hour,
-            minute=obj.minute,
-            second=obj.second,
-        )
-
-
+        return Container(year=obj.year, month=obj.month, day=obj.day, hour=obj.hour, minute=obj.minute, second=obj.second)
 class NukiConst:
-    ErrorCode = Enum(
-        Int8ul,
-        # General error codes
-        ERROR_BAD_CRC=0xFD,  # CRC of received command is invalid
-        ERROR_BAD_LENGTH=0xFE,  # Length of retrieved command payload does not match expected length
-        ERROR_UNKNOWN=0xFF,  # Used if no other error code matches
-        # Pairing service error codes
-        P_ERROR_NOT_PAIRING=0x10,  # Returned if public key is being requested via request data command, but the Smart Lock is not in pairing mode
-        P_ERROR_BAD_AUTHENTICATOR=0x11,  # Returned if the received authenticator does not match the own calculated authenticator
-        P_ERROR_BAD_PARAMETER=0x12,  # Returned if a provided parameter is outside of its valid range
-        P_ERROR_MAX_USER=0x13,  # Returned if the maximum number of users has been reached
-        # Keyturner service error codes
-        K_ERROR_NOT_AUTHORIZED=0x20,  # Returned if the provided authorization id is invalid or the payload could not be decrypted using the shared key for this authorization id
-        K_ERROR_BAD_PIN=0x21,  # Returned if the provided pin does not match the stored one.
-        K_ERROR_BAD_NONCE=0x22,  # Returned if the provided nonce does not match the last stored one of this authorization id or has already been used before.
-        K_ERROR_BAD_PARAMETER=0x23,  # Returned if a provided parameter is outside of its valid range.
-        K_ERROR_INVALID_AUTH_ID=0x24,  # Returned if the desired authorization id could not be deleted because it does not exist.
-        K_ERROR_DISABLED=0x25,  # Returned if the provided authorization id is currently disabled.
-        K_ERROR_REMOTE_NOT_ALLOWED=0x26,  # Returned if the request has been forwarded by the Nuki Bridge and the provided authorization id has not been granted remote access.
-        K_ERROR_TIME_NOT_ALLOWED=0x27,  # Returned if the provided authorization id has not been granted access at the current time.
-        K_ERROR_TOO_MANY_PIN_ATTEMPTS=0x28,  # Returned if an invalid pin has been provided too often
-        K_ERROR_TOO_MANY_ENTRIES=0x29,  # Returned if no more entries can be stored
-        K_ERROR_CODE_ALREADY_EXISTS=0x2A,  # Returned if a Keypad Code should be added but the given code already exists.
-        K_ERROR_CODE_INVALID=0x2B,  # Returned if a Keypad Code that has been entered is invalid.
-        K_ERROR_CODE_INVALID_TIMEOUT_1=0x2C,  # Returned if an invalid pin has been provided multiple times.
-        K_ERROR_CODE_INVALID_TIMEOUT_2=0x2D,  # Returned if an invalid pin has been provided multiple times.
-        K_ERROR_CODE_INVALID_TIMEOUT_3=0x2E,  # Returned if an invalid pin has been provided multiple times.
-        K_ERROR_AUTO_UNLOCK_TOO_RECENT=0x40,  # Returned on an incoming auto unlock request and if a lock action has already been executed within short time.
-        K_ERROR_POSITION_UNKNOWN=0x41,  # Returned on an incoming unlock request if the request has been forwarded by the Nuki Bridge and the Smart Lock is unsure about its actual lock position.
-        K_ERROR_MOTOR_BLOCKED=0x42,  # Returned if the motor blocks.
-        K_ERROR_CLUTCH_FAILURE=0x43,  # Returned if there is a problem with the clutch during motor movement.
-        K_ERROR_MOTOR_TIMEOUT=0x44,  # Returned if the motor moves for a given period of time but did not block.
-        K_ERROR_BUSY=0x45,  # Returned on any lock action via bluetooth if there is already a lock action processing.
-        K_ERROR_CANCELED=0x46,  # Returned on any lock action or during calibration if the user canceled the motor movement by pressing the button
-        K_ERROR_NOT_CALIBRATED=0x47,  # Returned on any lock action if the Smart Lock has not yet been calibrated
-        K_ERROR_MOTOR_POSITION_LIMIT=0x48,  # Returned during calibration if the internal position database is not able to store any more values
-        K_ERROR_MOTOR_LOW_VOLTAGE=0x49,  # Returned if the motor blocks because of low voltage.
-        K_ERROR_MOTOR_POWER_FAILURE=0x4A,  # Returned if the power drain during motor movement is zero
-        K_ERROR_CLUTCH_POWER_FAILURE=0x4B,  # Returned if the power drain during clutch movement is zero
-        K_ERROR_VOLTAGE_TOO_LOW=0x4C,  # Returned on a calibration request if the battery voltage is too low and a calibration will therefore not be started
-        K_ERROR_FIRMWARE_UPDATE_NEEDED=0x4D,  # Returned during any motor action if a firmware update is mandatory
+    ErrorCode = Enum(Int8ul,
+        #General error codes
+        ERROR_BAD_CRC = 0xFD, #CRC of received command is invalid
+        ERROR_BAD_LENGTH = 0xFE, #Length of retrieved command payload does not match expected length
+        ERROR_UNKNOWN = 0xFF, #Used if no other error code matches
+
+        #Pairing service error codes
+        P_ERROR_NOT_PAIRING = 0x10, #Returned if public key is being requested via request data command, but the Smart Lock is not in pairing mode
+        P_ERROR_BAD_AUTHENTICATOR = 0x11, #Returned if the received authenticator does not match the own calculated authenticator
+        P_ERROR_BAD_PARAMETER = 0x12, #Returned if a provided parameter is outside of its valid range
+        P_ERROR_MAX_USER = 0x13, #Returned if the maximum number of users has been reached
+
+        #Keyturner service error codes
+        K_ERROR_NOT_AUTHORIZED = 0x20, #Returned if the provided authorization id is invalid or the payload could not be decrypted using the shared key for this authorization id
+        K_ERROR_BAD_PIN = 0x21, #Returned if the provided pin does not match the stored one.
+        K_ERROR_BAD_NONCE = 0x22, #Returned if the provided nonce does not match the last stored one of this authorization id or has already been used before.
+        K_ERROR_BAD_PARAMETER = 0x23, #Returned if a provided parameter is outside of its valid range.
+        K_ERROR_INVALID_AUTH_ID = 0x24, #Returned if the desired authorization id could not be deleted because it does not exist.
+        K_ERROR_DISABLED = 0x25, #Returned if the provided authorization id is currently disabled.
+        K_ERROR_REMOTE_NOT_ALLOWED = 0x26, #Returned if the request has been forwarded by the Nuki Bridge and the provided authorization id has not been granted remote access.
+        K_ERROR_TIME_NOT_ALLOWED = 0x27, #Returned if the provided authorization id has not been granted access at the current time.
+        K_ERROR_TOO_MANY_PIN_ATTEMPTS = 0x28, #Returned if an invalid pin has been provided too often
+        K_ERROR_TOO_MANY_ENTRIES = 0x29, #Returned if no more entries can be stored
+        K_ERROR_CODE_ALREADY_EXISTS = 0x2A, #Returned if a Keypad Code should be added but the given code already exists.
+        K_ERROR_CODE_INVALID = 0x2B, #Returned if a Keypad Code that has been entered is invalid.
+        K_ERROR_CODE_INVALID_TIMEOUT_1 = 0x2C, #Returned if an invalid pin has been provided multiple times.
+        K_ERROR_CODE_INVALID_TIMEOUT_2 = 0x2D, #Returned if an invalid pin has been provided multiple times.
+        K_ERROR_CODE_INVALID_TIMEOUT_3 = 0x2E, #Returned if an invalid pin has been provided multiple times.
+        K_ERROR_AUTO_UNLOCK_TOO_RECENT = 0x40, #Returned on an incoming auto unlock request and if a lock action has already been executed within short time.
+        K_ERROR_POSITION_UNKNOWN = 0x41, #Returned on an incoming unlock request if the request has been forwarded by the Nuki Bridge and the Smart Lock is unsure about its actual lock position.
+        K_ERROR_MOTOR_BLOCKED = 0x42, #Returned if the motor blocks.
+        K_ERROR_CLUTCH_FAILURE = 0x43, #Returned if there is a problem with the clutch during motor movement.
+        K_ERROR_MOTOR_TIMEOUT = 0x44, #Returned if the motor moves for a given period of time but did not block.
+        K_ERROR_BUSY = 0x45, #Returned on any lock action via bluetooth if there is already a lock action processing.
+        K_ERROR_CANCELED = 0x46, #Returned on any lock action or during calibration if the user canceled the motor movement by pressing the button
+        K_ERROR_NOT_CALIBRATED = 0x47, #Returned on any lock action if the Smart Lock has not yet been calibrated
+        K_ERROR_MOTOR_POSITION_LIMIT = 0x48, #Returned during calibration if the internal position database is not able to store any more values
+        K_ERROR_MOTOR_LOW_VOLTAGE = 0x49, #Returned if the motor blocks because of low voltage.
+        K_ERROR_MOTOR_POWER_FAILURE = 0x4A, #Returned if the power drain during motor movement is zero
+        K_ERROR_CLUTCH_POWER_FAILURE = 0x4B, #Returned if the power drain during clutch movement is zero
+        K_ERROR_VOLTAGE_TOO_LOW = 0x4C, #Returned on a calibration request if the battery voltage is too low and a calibration will therefore not be started
+        K_ERROR_FIRMWARE_UPDATE_NEEDED = 0x4D, #Returned during any motor action if a firmware update is mandatory
     )
 
-    BridgeType = Enum(
-        Byte,
-        HW=1,
-        SW=2,
+    BridgeType = Enum(Byte,
+        HW = 1,
+        SW = 2,
     )
 
-    NukiDeviceType = Enum(
-        Byte,
-        SMARTLOCK_1_2=0,
-        OPENER=2,
-        SMARTDOOR=3,
-        SMARTLOCK_3=4,
+    NukiDeviceType = Enum(Byte,
+        SMARTLOCK_1_2 = 0,
+        OPENER = 2,
+        SMARTDOOR = 3,
+        SMARTLOCK_3 = 4,
         SMARTLOCK_ULTRA=5,
     )
 
-    StatusCode = Enum(
-        Int8ul,
-        COMPLETED=0x0,
-        ACCEPTED=0x1,
+    StatusCode = Enum(Int8ul,
+        COMPLETED = 0x0,
+        ACCEPTED = 0x1,
     )
 
-    DoorsensorState = Enum(
-        Int8ul,
-        UNAVAILABLE=0x00,
-        DEACTIVATED=0x01,
-        DOOR_CLOSED=0x02,
-        DOOR_OPENED=0x03,
-        DOOR_STATE_UNKOWN=0x04,
-        CALIBRATING=0x05,
-        UNCALIBRATED=0x16,
-        REMOVED=0x240,
-        UNKOWN=0x255,
+    DoorsensorState = Enum(Int8ul,
+        UNAVAILABLE = 0x00,
+        DEACTIVATED = 0x01,
+        DOOR_CLOSED = 0x02,
+        DOOR_OPENED = 0x03,
+        DOOR_STATE_UNKOWN = 0x04,
+        CALIBRATING = 0x05,
+        UNCALIBRATED = 0x16,
+        REMOVED = 0x240,
+        UNKOWN = 0x255,
     )
 
-    LockActionCompletionStatus = Enum(
-        Int8ul,
-        SUCCESS=0x00,
-        MOTOR_BLOCKED=0x01,
-        CANCELED=0x02,
-        TOO_RECENT=0x03,
-        BUSY=0x04,
-        LOW_MOTOR_VOLTAGE=0x05,
-        CLUTCH_FAILURE=0x06,
-        MOTOR_POWER_FAILURE=0x07,
-        INCOMPLETE=0x08,
-        OTHER_ERROR=0xFE,
-        UNKNOWN=0xFF,
+    LockActionCompletionStatus = Enum(Int8ul,
+        SUCCESS = 0x00,
+        MOTOR_BLOCKED = 0x01,
+        CANCELED = 0x02,
+        TOO_RECENT = 0x03,
+        BUSY = 0x04,
+        LOW_MOTOR_VOLTAGE = 0x05,
+        CLUTCH_FAILURE = 0x06,
+        MOTOR_POWER_FAILURE = 0x07,
+        INCOMPLETE = 0x08,
+        OTHER_ERROR = 0xFE,
+        UNKNOWN = 0xFF,
     )
 
-    NukiCommand = Enum(
-        Int16ul,
-        EMPTY=0x0000,
-        REQUEST_DATA=0x0001,
-        PUBLIC_KEY=0x0003,
-        CHALLENGE=0x0004,
-        AUTHORIZATION_AUTHENTICATOR=0x0005,
-        AUTHORIZATION_DATA=0x0006,
-        AUTHORIZATION_ID=0x0007,
-        AUTHORIZATION_ID_ULTRA=0x0007,  # Used for modified response by Nuki Smart Lock Ultra
-        REMOVE_USER_AUTHORIZATION=0x0008,
-        REQUEST_AUTHORIZATION_ENTRIES=0x0009,
-        AUTHORIZATION_ENTRY=0x000A,
-        AUTHORIZATION_DATA_INVITE=0x000B,
+    NukiCommand = Enum(Int16ul,
+        EMPTY                         = 0x0000,
+        REQUEST_DATA                  = 0x0001,
+        PUBLIC_KEY                    = 0x0003,
+        CHALLENGE                     = 0x0004,
+        AUTHORIZATION_AUTHENTICATOR   = 0x0005,
+        AUTHORIZATION_DATA            = 0x0006,
+        AUTHORIZATION_ID              = 0x0007,
+        AUTHORIZATION_ID_ULTRA        = 0x0007,  # Used for modified response by Nuki Smart Lock Ultra
+        REMOVE_USER_AUTHORIZATION     = 0x0008,
+        REQUEST_AUTHORIZATION_ENTRIES = 0x0009,
+        AUTHORIZATION_ENTRY           = 0x000A,
+        AUTHORIZATION_DATA_INVITE     = 0x000B,
         AUTHORIZATION_DATA_INVITE_ULTRA=0x000B,  # Used for modified security_pin for by Nuki Smart Lock Ultra
-        KEYTURNER_STATES=0x000C,
-        KEYTURNER_STATES_ULTRA=0x000C,  # Used for modified security_pin for by Nuki Smart Lock Ultra
-        LOCK_ACTION=0x000D,
-        STATUS=0x000E,
-        MOST_RECENT_COMMAND=0x000F,
-        OPENINGS_CLOSINGS_SUMMARY=0x0010,  # Lock only (+ NUKI v1 only)
-        BATTERY_REPORT=0x0011,
-        ERROR_REPORT=0x0012,
-        SET_CONFIG=0x0013,
-        REQUEST_CONFIG=0x0014,
-        CONFIG=0x0015,
-        SET_SECURITY_PIN=0x0019,
-        REQUEST_CALIBRATION=0x001A,  # SetCalibrated for Opener
-        REQUEST_REBOOT=0x001D,
-        AUTHORIZATION_ID_CONFIRMATION=0x001E,
-        AUTHORIZATION_ID_INVITE=0x001F,
-        VERIFY_SECURITY_PIN=0x0020,
-        VERIFY_SECURITY_PIN_ULTRA=0x0020,  # Used for modified security_pin for by Nuki Smart Lock Ultra
-        UPDATE_TIME=0x0021,
-        UPDATE_TIME_ULTRA=0x0021,  # Used for modified security_pin for by Nuki Smart Lock Ultra
-        UPDATE_AUTHORIZATION=0x0025,
-        AUTHORIZATION_ENTRY_COUNT=0x0027,
-        START_BUS_SIGNAL_RECORDING=0x002F,  # Opener only
-        REQUEST_LOG_ENTRIES=0x0031,
-        REQUEST_LOG_ENTRIES_ULTRA=0x0031,  # Used for modified security_pin for by Nuki Smart Lock Ultra
-        LOG_ENTRY=0x0032,
-        LOG_ENTRY_COUNT=0x0033,
-        ENABLE_LOGGING=0x0034,
-        SET_ADVANCED_CONFIG=0x0035,
-        REQUEST_ADVANCED_CONFIG=0x0036,
-        ADVANCED_CONFIG=0x0037,
-        ADD_TIME_CONTROL_ENTRY=0x0039,
-        TIME_CONTROL_ENTRY_ID=0x003A,
-        REMOVE_TIME_CONTROL_ENTRY=0x003B,
-        REQUEST_TIME_CONTROL_ENTRIES=0x003C,
-        TIME_CONTROL_ENTRY_COUNT=0x003D,
-        TIME_CONTROL_ENTRY=0x003E,
-        UPDATE_TIME_CONTROL_ENTRY=0x003F,
-        ADD_KEYPAD_CODE=0x0041,
-        ADD_KEYPAD_CODE_ULTRA=0x0041,  # Used for modified security_pin for Nuki Smart Lock Ultra
-        KEYPAD_CODE_ID=0x0042,
-        REQUEST_KEYPAD_CODES=0x0043,
-        KEYPAD_CODE_COUNT=0x0044,
-        KEYPAD_CODE=0x0045,
-        UPDATE_KEYPAD_CODE=0x0046,
-        REMOVE_KEYPAD_CODE=0x0047,
-        KEYPAD_ACTION=0x0048,
-        AUTHORIZATION_INFO=0x004C,
-        CONTINUOUS_MODE_ACTION=0x0057,  # Opener only
-        SIMPLE_LOCK_ACTION=0x0100,
+        KEYTURNER_STATES              = 0x000C,
+        KEYTURNER_STATES_ULTRA        = 0x000C,  # Used for modified security_pin for by Nuki Smart Lock Ultra
+        LOCK_ACTION                   = 0x000D,
+        STATUS                        = 0x000E,
+        MOST_RECENT_COMMAND           = 0x000F,
+        OPENINGS_CLOSINGS_SUMMARY     = 0x0010,  # Lock only (+ NUKI v1 only)
+        BATTERY_REPORT                = 0x0011,
+        ERROR_REPORT                  = 0x0012,
+        SET_CONFIG                    = 0x0013,
+        REQUEST_CONFIG                = 0x0014,
+        CONFIG                        = 0x0015,
+        SET_SECURITY_PIN              = 0x0019,
+        REQUEST_CALIBRATION           = 0x001A, # SetCalibrated for Opener
+        REQUEST_REBOOT                = 0x001D,
+        AUTHORIZATION_ID_CONFIRMATION = 0x001E,
+        AUTHORIZATION_ID_INVITE       = 0x001F,
+        VERIFY_SECURITY_PIN           = 0x0020,
+        VERIFY_SECURITY_PIN_ULTRA     = 0x0020,  # Used for modified security_pin for by Nuki Smart Lock Ultra
+        UPDATE_TIME                   = 0x0021,
+        UPDATE_TIME_ULTRA             = 0x0021,  # Used for modified security_pin for by Nuki Smart Lock Ultra
+        UPDATE_AUTHORIZATION          = 0x0025,
+        AUTHORIZATION_ENTRY_COUNT     = 0x0027,
+        START_BUS_SIGNAL_RECORDING    = 0x002F, # Opener only
+        REQUEST_LOG_ENTRIES           = 0x0031,
+        REQUEST_LOG_ENTRIES_ULTRA     = 0x0031,  # Used for modified security_pin for by Nuki Smart Lock Ultra
+        LOG_ENTRY                     = 0x0032,
+        LOG_ENTRY_COUNT               = 0x0033,
+        ENABLE_LOGGING                = 0x0034,
+        SET_ADVANCED_CONFIG           = 0x0035,
+        REQUEST_ADVANCED_CONFIG       = 0x0036,
+        ADVANCED_CONFIG               = 0x0037,
+        ADD_TIME_CONTROL_ENTRY        = 0x0039,
+        TIME_CONTROL_ENTRY_ID         = 0x003A,
+        REMOVE_TIME_CONTROL_ENTRY     = 0x003B,
+        REQUEST_TIME_CONTROL_ENTRIES  = 0x003C,
+        TIME_CONTROL_ENTRY_COUNT      = 0x003D,
+        TIME_CONTROL_ENTRY            = 0x003E,
+        UPDATE_TIME_CONTROL_ENTRY     = 0x003F,
+        ADD_KEYPAD_CODE               = 0x0041,
+        ADD_KEYPAD_CODE_ULTRA         = 0x0041,  # Used for modified security_pin for Nuki Smart Lock Ultra
+        KEYPAD_CODE_ID                = 0x0042,
+        REQUEST_KEYPAD_CODES          = 0x0043,
+        KEYPAD_CODE_COUNT             = 0x0044,
+        KEYPAD_CODE                   = 0x0045,
+        UPDATE_KEYPAD_CODE            = 0x0046,
+        REMOVE_KEYPAD_CODE            = 0x0047,
+        KEYPAD_ACTION                 = 0x0048,
+        CONTINUOUS_MODE_ACTION        = 0x0057, # Opener only
+        SIMPLE_LOCK_ACTION            = 0x0100,
     )
 
-    TimeZoneId = Enum(
-        Int16ul,
-        AFRICA_CAIRO=0,  # UTC+2 EET dst: no
-        AFRICA_LAGOS=1,  # UTC+1 WAT dst: no
-        AFRICA_MAPUTO=2,  # UTC+2 CAT, SAST dst: no
-        AFRICA_NAIROBI=3,  # UTC+3 EAT dst: no
-        AMERICA_ANCHORAGE=4,  # UTC-9/-8 AKDT dst: yes
-        AMERICA_ARGENTINA_BUENOS_AIRES=5,  # UTC-3 ART, UYT dst: no
-        AMERICA_CHICAGO=6,  # UTC-6/-5 CDT dst: yes
-        AMERICA_DENVER=7,  # UTC-7/-6 MDT dst: yes
-        AMERICA_HALIFAX=8,  # UTC-4/-3 ADT dst: yes
-        AMERICA_LOS_ANGELES=9,  # UTC-8/-7 PDT dst: yes
-        AMERICA_MANAUS=10,  # UTC-4 AMT, BOT, VET, AST, GYT dst: no
-        AMERICA_MEXICO_CITY=11,  # UTC-6/-5 CDT dst: yes
-        AMERICA_NEW_YORK=12,  # UTC-5/-4 EDT dst: yes
-        AMERICA_PHOENIX=13,  # UTC-7 MST dst: no
-        AMERICA_REGINA=14,  # UTC-6 CST dst: no
-        AMERICA_SANTIAGO=15,  # UTC-4/-3 CLST, AMST, WARST, PYST dst: yes
-        AMERICA_SAO_PAULO=16,  # UTC-3 BRT dst: no
-        AMERICA_ST_JOHNS=17,  # UTC-3½/ -2½ NDT dst: yes
-        ASIA_BANGKOK=18,  # UTC+7 ICT, WIB dst: no
-        ASIA_DUBAI=19,  # UTC+4 SAMT, GET, AZT, GST, MUT, RET, SCT, AMT-Arm dst: no
-        ASIA_HONG_KONG=20,  # UTC+8 HKT dst: no
-        ASIA_JERUSALEM=21,  # UTC+2/+3 IDT dst: yes
-        ASIA_KARACHI=22,  # UTC+5 PKT, YEKT, TMT, UZT, TJT, ORAT dst: no
-        ASIA_KATHMANDU=23,  # UTC+5¾ NPT dst: no
-        ASIA_KOLKATA=24,  # UTC+5½ IST dst: no
-        ASIA_RIYADH=25,  # UTC+3 AST-Arabia dst: no
-        ASIA_SEOUL=26,  # UTC+9 KST dst: no
-        ASIA_SHANGHAI=27,  # UTC+8 CST, ULAT, IRKT, PHT, BND, WITA dst: no
-        ASIA_TEHRAN=28,  # UTC+3½ ARST dst: no
-        ASIA_TOKYO=29,  # UTC+9 JST, WIT, PWT, YAKT dst: no
-        ASIA_YANGON=30,  # UTC+6½ MMT dst: no
-        AUSTRALIA_ADELAIDE=31,  # UTC+9½/10½ ACDT dst: yes
-        AUSTRALIA_BRISBANE=32,  # UTC+10 AEST, PGT, VLAT dst: no
-        AUSTRALIA_DARWIN=33,  # UTC+9½ ACST dst: no
-        AUSTRALIA_HOBART=34,  # UTC+10/+11 AEDT dst: yes
-        AUSTRALIA_PERTH=35,  # UTC+8 AWST dst: no
-        AUSTRALIA_SYDNEY=36,  # UTC+10/+11 AEDT dst: yes
-        EUROPE_BERLIN=37,  # UTC+1/+2 CEST dst: yes
-        EUROPE_HELSINKI=38,  # UTC+2/+3 EEST dst: yes
-        EUROPE_ISTANBUL=39,  # UTC+3 TRT dst: no
-        EUROPE_LONDON=40,  # UTC+0/+1 BST, IST dst: yes
-        EUROPE_MOSCOW=41,  # UTC+3 MSK dst: no
-        PACIFIC_AUCKLAND=42,  # UTC+12/+13 NZDT dst: yes
-        PACIFIC_GUAM=43,  # UTC+10 ChST dst: no
-        PACIFIC_HONOLULU=44,  # UTC-10 H(A)ST dst: no
-        PACIFIC_PAGO_PAGO=45,  # UTC-11 SST dst: no
-        NONE=65535,  #
+    TimeZoneId = Enum(Int16ul,
+        AFRICA_CAIRO = 0,                     # UTC+2 EET dst: no
+        AFRICA_LAGOS = 1,                     # UTC+1 WAT dst: no
+        AFRICA_MAPUTO = 2,                    # UTC+2 CAT, SAST dst: no
+        AFRICA_NAIROBI = 3,                   # UTC+3 EAT dst: no
+        AMERICA_ANCHORAGE = 4,                # UTC-9/-8 AKDT dst: yes
+        AMERICA_ARGENTINA_BUENOS_AIRES = 5,   # UTC-3 ART, UYT dst: no
+        AMERICA_CHICAGO = 6,                  # UTC-6/-5 CDT dst: yes
+        AMERICA_DENVER = 7,                   # UTC-7/-6 MDT dst: yes
+        AMERICA_HALIFAX = 8,                  # UTC-4/-3 ADT dst: yes
+        AMERICA_LOS_ANGELES = 9,              # UTC-8/-7 PDT dst: yes
+        AMERICA_MANAUS = 10,                  # UTC-4 AMT, BOT, VET, AST, GYT dst: no
+        AMERICA_MEXICO_CITY = 11,             # UTC-6/-5 CDT dst: yes
+        AMERICA_NEW_YORK = 12,                # UTC-5/-4 EDT dst: yes
+        AMERICA_PHOENIX = 13,                 # UTC-7 MST dst: no
+        AMERICA_REGINA = 14,                  # UTC-6 CST dst: no
+        AMERICA_SANTIAGO = 15,                # UTC-4/-3 CLST, AMST, WARST, PYST dst: yes
+        AMERICA_SAO_PAULO = 16,               # UTC-3 BRT dst: no
+        AMERICA_ST_JOHNS = 17,                # UTC-3½/ -2½ NDT dst: yes
+        ASIA_BANGKOK = 18,                    # UTC+7 ICT, WIB dst: no
+        ASIA_DUBAI = 19,                      # UTC+4 SAMT, GET, AZT, GST, MUT, RET, SCT, AMT-Arm dst: no
+        ASIA_HONG_KONG = 20,                  # UTC+8 HKT dst: no
+        ASIA_JERUSALEM = 21,                  # UTC+2/+3 IDT dst: yes
+        ASIA_KARACHI = 22,                    # UTC+5 PKT, YEKT, TMT, UZT, TJT, ORAT dst: no
+        ASIA_KATHMANDU = 23,                  # UTC+5¾ NPT dst: no
+        ASIA_KOLKATA = 24,                    # UTC+5½ IST dst: no
+        ASIA_RIYADH = 25,                     # UTC+3 AST-Arabia dst: no
+        ASIA_SEOUL = 26,                      # UTC+9 KST dst: no
+        ASIA_SHANGHAI = 27,                   # UTC+8 CST, ULAT, IRKT, PHT, BND, WITA dst: no
+        ASIA_TEHRAN = 28,                     # UTC+3½ ARST dst: no
+        ASIA_TOKYO = 29,                      # UTC+9 JST, WIT, PWT, YAKT dst: no
+        ASIA_YANGON = 30,                     # UTC+6½ MMT dst: no
+        AUSTRALIA_ADELAIDE = 31,              # UTC+9½/10½ ACDT dst: yes
+        AUSTRALIA_BRISBANE = 32,              # UTC+10 AEST, PGT, VLAT dst: no
+        AUSTRALIA_DARWIN = 33,                # UTC+9½ ACST dst: no
+        AUSTRALIA_HOBART = 34,                # UTC+10/+11 AEDT dst: yes
+        AUSTRALIA_PERTH = 35,                 # UTC+8 AWST dst: no
+        AUSTRALIA_SYDNEY = 36,                # UTC+10/+11 AEDT dst: yes
+        EUROPE_BERLIN = 37,                   # UTC+1/+2 CEST dst: yes
+        EUROPE_HELSINKI = 38,                 # UTC+2/+3 EEST dst: yes
+        EUROPE_ISTANBUL = 39,                 # UTC+3 TRT dst: no
+        EUROPE_LONDON = 40,                   # UTC+0/+1 BST, IST dst: yes
+        EUROPE_MOSCOW = 41,                   # UTC+3 MSK dst: no
+        PACIFIC_AUCKLAND = 42,                # UTC+12/+13 NZDT dst: yes
+        PACIFIC_GUAM = 43,                    # UTC+10 ChST dst: no
+        PACIFIC_HONOLULU = 44,                # UTC-10 H(A)ST dst: no
+        PACIFIC_PAGO_PAGO = 45,               # UTC-11 SST dst: no
+        NONE = 65535,                         #
     )
 
-    State = Enum(
-        Int8ul,
-        UNINITIALIZED=0x00,
-        PAIRING_MODE=0x01,
-        DOOR_MODE=0x02,
-        CONTINUOUS_MODE=0x03,
-        MAINTENANCE_MODE=0x04,
+    State = Enum(Int8ul,
+        UNINITIALIZED = 0x00,
+        PAIRING_MODE = 0x01,
+        DOOR_MODE = 0x02,
+        CONTINUOUS_MODE = 0x03,
+        MAINTENANCE_MODE = 0x04,
     )
 
-    ActionTrigger = Enum(
-        Int8ul,
-        SYSTEM=0x00,
-        MANUAL=0x01,
-        BUTTON=0x02,
-        AUTOMATIC=0x03,
-        AUTO_LOCK=0x06,
+    ActionTrigger = Enum(Int8ul,
+        SYSTEM = 0x00,
+        MANUAL = 0x01,
+        BUTTON = 0x02,
+        AUTOMATIC = 0x03,
+        AUTO_LOCK = 0x06,
     )
 
-    NukiClientType = Enum(
-        Int8ul,
-        APP=0x00,
-        BRIDGE=0x01,
-        FOB=0x02,
-        KEYPAD=0x03,
+    NukiClientType = Enum(Int8ul,
+        APP = 0x00,
+        BRIDGE = 0x01,
+        FOB = 0x02,
+        KEYPAD = 0x03,
     )
 
-    LogEntryType = Enum(
-        Int8ul,
-        LOGGING_ENABLED_DISABLED=0x01,
-        LOCK_ACTION=0x02,
-        CALIBRATION=0x03,
-        INITIALIZATION_RUN=0x04,
-        KEYPAD_ACTION=0x05,
-        DOOR_SENSOR=0x06,  # DOORBELL_RECOGNITION for opener
-        DOOR_SENSOR_LOGGING_ENABLED_DISABLED=0x07,
+    LogEntryType = Enum(Int8ul,
+        LOGGING_ENABLED_DISABLED = 0x01,
+        LOCK_ACTION = 0x02,
+        CALIBRATION = 0x03,
+        INITIALIZATION_RUN = 0x04,
+        KEYPAD_ACTION = 0x05,
+        DOOR_SENSOR = 0x06, # DOORBELL_RECOGNITION for opener
+        DOOR_SENSOR_LOGGING_ENABLED_DISABLED = 0x07,
     )
 
-    BatteryType = Enum(
-        Int8ul,
-        ALKALI=0x00,
-        ACCUMULATORS=0x01,
-        LITHIUM=0x02,
+    BatteryType = Enum(Int8ul,
+        ALKALI       = 0X00,
+        ACCUMULATORS = 0X01,
+        LITHIUM      = 0X02,
     )
 
-    AdvertisingMode = Enum(
-        Int8ul,
-        AUTOMATIC=0x00,
-        NORMAL=0x01,
-        SLOW=0x02,
-        SLOWEST=0x03,
+    AdvertisingMode = Enum(Int8ul,
+        AUTOMATIC = 0X00,
+        NORMAL    = 0X01,
+        SLOW      = 0X02,
+        SLOWEST   = 0X03,
     )
 
     NukiDateTime = NukiDateTimeConstruct()
@@ -378,9 +322,13 @@ class NukiConst:
         "door_sensor_logging_enabled" / Int8ul,
     )
 
-    Challenge = Struct("nonce" / Bytes(32))
+    Challenge = Struct(
+        "nonce" / Bytes(32)
+    )
 
-    PublicKey = Struct("public_key" / Bytes(32))
+    PublicKey = Struct(
+        "public_key" / Bytes(32)
+    )
 
     AuthorizationId = Struct(
         "authenticator" / Bytes(32),
@@ -404,9 +352,14 @@ class NukiConst:
         "security_pin" / Int32ul,
     )
 
-    NukiCommandStatus = Struct("status" / StatusCode)
+    NukiCommandStatus = Struct(
+        "status" / StatusCode
+    )
 
-    ErrorReport = Struct("error_code" / ErrorCode, "command_identifier" / NukiCommand)
+    ErrorReport = Struct(
+        "error_code" / ErrorCode,
+        "command_identifier" / NukiCommand
+    )
 
     NukiEncryptedMessage = Struct(
         "nonce" / Bytes(24),
@@ -456,7 +409,7 @@ class NukiConst:
     )
 
     AddKeypadCode = Struct(
-        "code" / Int32ul,  # needs to be 6 digits
+        "code" / Int32ul, #needs to be 6 digits
         "name" / PaddedString(20, "utf8"),
         "time_limited" / Int8ul,
         "allowed_from_date" / NukiDateTime,
@@ -497,7 +450,7 @@ class NukiConst:
         "allowed_until_time" / NukiTime,
     )
 
-    UpdateKeypadCode = Struct(
+    UpdatedKeypadCode = Struct(
         "code_id" / Int16ul,
         "code" / Int32ul,
         "name" / PaddedString(20, "utf8"),
@@ -547,7 +500,7 @@ class NukiConst:
     AuthorizationDataInvite = Struct(
         "name" / PaddedString(32, "utf8"),
         "id_type" / NukiClientType,
-        "shared_key" / Bytes(32),  # TODO: add shared key within class
+        "shared_key" / Bytes(32), #TODO: add shared key within class
         "remote_allowed" / Int8ul,
         "time_limited" / Int8ul,
         "allowed_from_date" / NukiDateTime,
@@ -604,9 +557,13 @@ class NukiConst:
         "security_pin" / Int32ul,
     )
 
-    RequestData = Struct("command" / NukiCommand)
+    RequestData = Struct(
+        "command" / NukiCommand
+    )
 
-    RequestConfig = Struct("nonce" / Bytes(32))
+    RequestConfig = Struct(
+        "nonce" / Bytes(32)
+    )
 
     LockState = NotImplemented
     LockAction = NotImplemented
@@ -625,7 +582,7 @@ class NukiConst:
 
     LogEntryExt1 = Struct(
         "logging_enabled" / Int8ul,
-        "padding" / Optional(Padding(4)),  # Nuki3 has padding, Nuki4 doesn't
+        "padding" / Optional(Padding(4)), #Nuki3 has padding, Nuki4 doesn't
     )
 
     @functools.cached_property
@@ -635,8 +592,8 @@ class NukiConst:
             "trigger" / self.ActionTrigger,
             "flags" / Int8ul,
             "completion_status" / self.LockActionCompletionStatus,
-            Optional(Padding(1)),  # Nuki3 has 1 padding, others may not.
-            Optional(Padding(3)),  # Nuki4 padding
+            Optional(Padding(1)), #Nuki3 has 1 padding, others may not.
+            Optional(Padding(3)), #Nuki4 padding
         )
 
     @functools.cached_property
@@ -650,7 +607,7 @@ class NukiConst:
 
     LogEntryExt4 = Struct(
         "door_status" / Int8ul,
-        "padding" / Optional(Padding(4)),  # Nuki3 has padding, Nuki4 doesn't
+        "padding" / Optional(Padding(4)), #Nuki3 has padding, Nuki4 doesn't
     )
 
     @functools.cached_property
@@ -659,106 +616,93 @@ class NukiConst:
             "index" / Int32ul,
             "timestamp" / self.NukiDateTime,
             "auth_id" / Bytes(4),
-            "name" / Bytes(32),
+            "name" / PaddedString(32, "utf8"),
             "type" / self.LogEntryType,
-            "data"
-            / Switch(
-                this.type,
-                {
-                    self.LogEntryType.LOGGING_ENABLED_DISABLED: self.LogEntryExt1,
-                    self.LogEntryType.LOCK_ACTION: self.LogEntryExt2,
-                    self.LogEntryType.CALIBRATION: self.LogEntryExt2,
-                    self.LogEntryType.INITIALIZATION_RUN: self.LogEntryExt2,
-                    self.LogEntryType.KEYPAD_ACTION: self.LogEntryExt3,
-                    self.LogEntryType.DOOR_SENSOR: self.LogEntryExt4,
-                    self.LogEntryType.DOOR_SENSOR_LOGGING_ENABLED_DISABLED: self.LogEntryExt1,
-                },
-            ),
+            "data" / Switch(this.type, {
+                                    self.LogEntryType.LOGGING_ENABLED_DISABLED : self.LogEntryExt1,
+                                    self.LogEntryType.LOCK_ACTION : self.LogEntryExt2,
+                                    self.LogEntryType.CALIBRATION : self.LogEntryExt2,
+                                    self.LogEntryType.INITIALIZATION_RUN : self.LogEntryExt2,
+                                    self.LogEntryType.KEYPAD_ACTION : self.LogEntryExt3,
+                                    self.LogEntryType.DOOR_SENSOR : self.LogEntryExt4,
+                                    self.LogEntryType.DOOR_SENSOR_LOGGING_ENABLED_DISABLED : self.LogEntryExt1,
+                                    }),
         )
-
     @functools.cached_property
     def message_types(self):
         return {
-            self.NukiCommand.REQUEST_DATA: self.RequestData,
-            self.NukiCommand.PUBLIC_KEY: self.PublicKey,
-            self.NukiCommand.CHALLENGE: self.Challenge,
-            # self.NukiCommand.AUTHORIZATION_AUTHENTICATOR   : self.AuthorizationAuthenticator,
-            self.NukiCommand.AUTHORIZATION_DATA: self.AuthorizationData,
-            self.NukiCommand.AUTHORIZATION_ID: self.AuthorizationId,
-            self.NukiCommand.AUTHORIZATION_ID_ULTRA: self.AuthorizationIdUltra,
-            self.NukiCommand.AUTHORIZATION_INFO: self.AuthorizationInfo,
-            # self.NukiCommand.REMOVE_USER_AUTHORIZATION     : self.RemoveUserAuthorization,
-            # self.NukiCommand.REQUEST_AUTHORIZATION_ENTRIES : self.RequestAuthorizationEntries,
-            self.NukiCommand.AUTHORIZATION_ENTRY: self.AuthorizationEntry,
-            self.NukiCommand.AUTHORIZATION_DATA_INVITE: self.AuthorizationDataInvite,
-            self.NukiCommand.AUTHORIZATION_DATA_INVITE_ULTRA: self.AuthorizationDataInviteUltra,
-            self.NukiCommand.KEYTURNER_STATES: self.KeyturnerStates,
-            self.NukiCommand.LOCK_ACTION: self.LockActionMsg,
-            self.NukiCommand.STATUS: self.NukiCommandStatus,
-            # self.NukiCommand.MOST_RECENT_COMMAND           : self.MostRecentCommand,
-            # self.NukiCommand.OPENINGS_CLOSINGS_SUMMARY     : self.OpeningsClosingsSummary,
-            self.NukiCommand.BATTERY_REPORT: self.BatteryReport,
-            self.NukiCommand.ERROR_REPORT: self.ErrorReport,
-            # self.NukiCommand.SET_CONFIG                    : self.SetConfig,
-            self.NukiCommand.REQUEST_CONFIG: self.RequestConfig,
-            self.NukiCommand.CONFIG: self.Config,
-            # self.NukiCommand.SET_SECURITY_PIN              : self.SetSecurityPin,
-            # self.NukiCommand.REQUEST_CALIBRATION           : self.RequestCalibration,
-            # self.NukiCommand.REQUEST_REBOOT                : self.RequestReboot,
-            # self.NukiCommand.AUTHORIZATION_ID_CONFIRMATION : self.AuthorizationIdConfirmation,
-            # self.NukiCommand.AUTHORIZATION_ID_INVITE       : self.AuthorizationIdInvite,
-            self.NukiCommand.VERIFY_SECURITY_PIN: self.VerifySecurityPin,
-            self.NukiCommand.VERIFY_SECURITY_PIN_ULTRA: self.VerifySecurityPinUltra,
-            self.NukiCommand.UPDATE_TIME: self.UpdateTime,
-            self.NukiCommand.UPDATE_TIME_ULTRA: self.UpdateTimeUltra,
-            # self.NukiCommand.UPDATE_AUTHORIZATION          : self.UpdateAuthorization,
-            # self.NukiCommand.AUTHORIZATION_ENTRY_COUNT     : self.AuthorizationEntryCount,
-            # self.NukiCommand.START_BUS_SIGNAL_RECORDING    : self.StartBusSignalRecording,
-            self.NukiCommand.REQUEST_LOG_ENTRIES: self.RequestLogEntries,
-            self.NukiCommand.REQUEST_LOG_ENTRIES_ULTRA: self.RequestLogEntriesUltra,
-            self.NukiCommand.LOG_ENTRY: self.LogEntry,
-            self.NukiCommand.LOG_ENTRY_COUNT: self.LogEntryCount,
-            # self.NukiCommand.ENABLE_LOGGING                : self.EnableLogging,
-            # self.NukiCommand.SET_ADVANCED_CONFIG           : self.SetAdvancedConfig,
-            # self.NukiCommand.REQUEST_ADVANCED_CONFIG       : self.RequestAdvancedConfig,
-            # self.NukiCommand.ADVANCED_CONFIG               : self.AdvancedConfig,
-            # self.NukiCommand.ADD_TIME_CONTROL_ENTRY        : self.AddTimeControlEntry,
-            # self.NukiCommand.TIME_CONTROL_ENTRY_ID         : self.TimeControlEntryId,
-            # self.NukiCommand.REMOVE_TIME_CONTROL_ENTRY     : self.RemoveTimeControlEntry,
-            # self.NukiCommand.REQUEST_TIME_CONTROL_ENTRIES  : self.RequestTimeControlEntries,
-            # self.NukiCommand.TIME_CONTROL_ENTRY_COUNT      : self.TimeControlEntryCount,
-            # self.NukiCommand.TIME_CONTROL_ENTRY            : self.TimeControlEntry,
-            # self.NukiCommand.UPDATE_TIME_CONTROL_ENTRY     : self.UpdateTimeControlEntry,
-            self.NukiCommand.ADD_KEYPAD_CODE: self.AddKeypadCode,
-            self.NukiCommand.ADD_KEYPAD_CODE_ULTRA: self.AddKeypadCodeUltra,
-            # self.NukiCommand.KEYPAD_CODE_ID                : self.KeypadCodeId,
-            # self.NukiCommand.REQUEST_KEYPAD_CODES          : self.RequestKeypadCodes,
-            # self.NukiCommand.KEYPAD_CODE_COUNT             : self.KeypadCodeCount,
-            # self.NukiCommand.KEYPAD_CODE                   : self.KeypadCode,
-            # self.NukiCommand.UPDATE_KEYPAD_CODE            : self.UpdateKeypadCode,
-            # self.NukiCommand.UPDATE_KEYPAD_CODE_ULTRA      : self.UpdateKeypadCodeUltra,
-            # self.NukiCommand.REMOVE_KEYPAD_CODE            : self.RemoveKeypadCode,
-            # self.NukiCommand.KEYPAD_ACTION                 : self.KeypadAction,
-            # self.NukiCommand.CONTINUOUS_MODE_ACTION        : self.ContinuousModeAction,
-            # self.NukiCommand.SIMPLE_LOCK_ACTION            : self.SimpleLockAction,
-        }
+        self.NukiCommand.REQUEST_DATA                  : self.RequestData,
+        self.NukiCommand.PUBLIC_KEY                    : self.PublicKey,
+        self.NukiCommand.CHALLENGE                     : self.Challenge,
+        # self.NukiCommand.AUTHORIZATION_AUTHENTICATOR   : self.AuthorizationAuthenticator,
+        # self.NukiCommand.AUTHORIZATION_DATA            : self.AuthorizationData,
+        self.NukiCommand.AUTHORIZATION_ID              : self.AuthorizationId,
+        self.NukiCommand.AUTHORIZATION_ID_ULTRA        : self.AuthorizationIdUltra,
+        # self.NukiCommand.REMOVE_USER_AUTHORIZATION     : self.RemoveUserAuthorization,
+        # self.NukiCommand.REQUEST_AUTHORIZATION_ENTRIES : self.RequestAuthorizationEntries,
+        self.NukiCommand.AUTHORIZATION_ENTRY           : self.AuthorizationEntry,
+        self.NukiCommand.AUTHORIZATION_DATA_INVITE     : self.AuthorizationDataInvite,
+        self.NukiCommand.AUTHORIZATION_DATA_INVITE_ULTRA: self.AuthorizationDataInviteUltra,
+        self.NukiCommand.KEYTURNER_STATES              : self.KeyturnerStates,
+        self.NukiCommand.LOCK_ACTION                   : self.LockActionMsg,
+        self.NukiCommand.STATUS                        : self.NukiCommandStatus,
+        # self.NukiCommand.MOST_RECENT_COMMAND           : self.MostRecentCommand,
+        # self.NukiCommand.OPENINGS_CLOSINGS_SUMMARY     : self.OpeningsClosingsSummary,
+        self.NukiCommand.BATTERY_REPORT                : self.BatteryReport,
+        self.NukiCommand.ERROR_REPORT                  : self.ErrorReport,
+        # self.NukiCommand.SET_CONFIG                    : self.SetConfig,
+        self.NukiCommand.REQUEST_CONFIG                : self.RequestConfig,
+        self.NukiCommand.CONFIG                        : self.Config,
+        # self.NukiCommand.SET_SECURITY_PIN              : self.SetSecurityPin,
+        # self.NukiCommand.REQUEST_CALIBRATION           : self.RequestCalibration,
+        # self.NukiCommand.REQUEST_REBOOT                : self.RequestReboot,
+        # self.NukiCommand.AUTHORIZATION_ID_CONFIRMATION : self.AuthorizationIdConfirmation,
+        # self.NukiCommand.AUTHORIZATION_ID_INVITE       : self.AuthorizationIdInvite,
+        self.NukiCommand.VERIFY_SECURITY_PIN           : self.VerifySecurityPin,
+        self.NukiCommand.VERIFY_SECURITY_PIN_ULTRA     : self.VerifySecurityPinUltra,
+        self.NukiCommand.UPDATE_TIME                   : self.UpdateTime,
+        self.NukiCommand.UPDATE_TIME_ULTRA             : self.UpdateTimeUltra,
+        # self.NukiCommand.UPDATE_AUTHORIZATION          : self.UpdateAuthorization,
+        # self.NukiCommand.AUTHORIZATION_ENTRY_COUNT     : self.AuthorizationEntryCount,
+        # self.NukiCommand.START_BUS_SIGNAL_RECORDING    : self.StartBusSignalRecording,
+        self.NukiCommand.REQUEST_LOG_ENTRIES           : self.RequestLogEntries,
+        self.NukiCommand.REQUEST_LOG_ENTRIES_ULTRA     : self.RequestLogEntriesUltra,
+        self.NukiCommand.LOG_ENTRY                     : self.LogEntry,
+        self.NukiCommand.LOG_ENTRY_COUNT               : self.LogEntryCount,
+        # self.NukiCommand.ENABLE_LOGGING                : self.EnableLogging,
+        # self.NukiCommand.SET_ADVANCED_CONFIG           : self.SetAdvancedConfig,
+        # self.NukiCommand.REQUEST_ADVANCED_CONFIG       : self.RequestAdvancedConfig,
+        # self.NukiCommand.ADVANCED_CONFIG               : self.AdvancedConfig,
+        # self.NukiCommand.ADD_TIME_CONTROL_ENTRY        : self.AddTimeControlEntry,
+        # self.NukiCommand.TIME_CONTROL_ENTRY_ID         : self.TimeControlEntryId,
+        # self.NukiCommand.REMOVE_TIME_CONTROL_ENTRY     : self.RemoveTimeControlEntry,
+        # self.NukiCommand.REQUEST_TIME_CONTROL_ENTRIES  : self.RequestTimeControlEntries,
+        # self.NukiCommand.TIME_CONTROL_ENTRY_COUNT      : self.TimeControlEntryCount,
+        # self.NukiCommand.TIME_CONTROL_ENTRY            : self.TimeControlEntry,
+        # self.NukiCommand.UPDATE_TIME_CONTROL_ENTRY     : self.UpdateTimeControlEntry,
+        self.NukiCommand.ADD_KEYPAD_CODE               : self.AddKeypadCode,
+        self.NukiCommand.ADD_KEYPAD_CODE_ULTRA         : self.AddKeypadCodeUltra,
+        # self.NukiCommand.KEYPAD_CODE_ID                : self.KeypadCodeId,
+        # self.NukiCommand.REQUEST_KEYPAD_CODES          : self.RequestKeypadCodes,
+        # self.NukiCommand.KEYPAD_CODE_COUNT             : self.KeypadCodeCount,
+        # self.NukiCommand.KEYPAD_CODE                   : self.KeypadCode,
+        # self.NukiCommand.UPDATE_KEYPAD_CODE            : self.UpdateKeypadCode,
+        # self.NukiCommand.REMOVE_KEYPAD_CODE            : self.RemoveKeypadCode,
+        # self.NukiCommand.KEYPAD_ACTION                 : self.KeypadAction,
+        # self.NukiCommand.CONTINUOUS_MODE_ACTION        : self.ContinuousModeAction,
+        # self.NukiCommand.SIMPLE_LOCK_ACTION            : self.SimpleLockAction,
+    }
 
     @functools.cached_property
     def NukiMessage(self):
         return Struct(
             "auth_id" / Bytes(4),
             "command" / self.NukiCommand,
-            "payload"
-            / SoftOffsettedEnd(
-                -2, Switch(this.command, self.message_types)
-            ),  # limit payload parsing stream, otherwise internal Optional() doesn't work.
+            "payload" / SoftOffsettedEnd(-2, Switch(this.command, self.message_types)), #limit payload parsing stream, otherwise internal Optional() doesn't work.
             "unknown" / Optional(OffsettedEnd(-2, GreedyBytes)),
-            "crc"
-            / NukiChecksum(
-                Int16ul,
-                lambda data: crcCalc.calc(data),
-                lambda x: x._io.getvalue()[: x._io.tell()],
-            ),
+            "crc" / NukiChecksum(Int16ul,
+                            lambda data: crcCalc.calc(data),
+                            lambda x: x._io.getvalue()[:x._io.tell()])
         )
 
     @functools.cached_property
@@ -767,12 +711,9 @@ class NukiConst:
             "command" / self.NukiCommand,
             "payload" / SoftOffsettedEnd(-2, Switch(this.command, self.message_types)),
             "unknown" / Optional(OffsettedEnd(-2, GreedyBytes)),
-            "crc"
-            / NukiChecksum(
-                Int16ul,
-                lambda data: crcCalc.calc(data),
-                lambda x: x._io.getvalue()[: x._io.tell()],
-            ),
+            "crc" / NukiChecksum(Int16ul,
+                            lambda data: crcCalc.calc(data),
+                            lambda x: x._io.getvalue()[:x._io.tell()])
         )
 
     @functools.cached_property
@@ -819,7 +760,7 @@ class NukiConst:
             "nonce" / Bytes(32),
             "security_pin" / Int16ul,
         )
-
+    
     @functools.cached_property
     def NewTimeControlEntryUltra(self):
         return Struct(
@@ -832,52 +773,48 @@ class NukiConst:
 
 
 class NukiLockConst(NukiConst):
-    BLE_PAIRING_SERVICE = "a92ee100-5501-11e4-916c-0800200c9a66"
     BLE_PAIRING_SERVICE_ULTRA = "a92ee300-5501-11e4-916c-0800200c9a66"
     BLE_PAIRING_CHAR = "a92ee101-5501-11e4-916c-0800200c9a66"
     BLE_PAIRING_CHAR_ULTRA = "a92ee301-5501-11e4-916c-0800200c9a66"
     BLE_SERVICE = "a92ee200-5501-11e4-916c-0800200c9a66"
     BLE_CHAR = "a92ee202-5501-11e4-916c-0800200c9a66"
 
-    LockState = Enum(
-        Int8ul,
-        UNCALIBRATED=0x00,
-        LOCKED=0x01,
-        UNLOCKING=0x02,
-        UNLOCKED=0x03,
-        LOCKING=0x04,
-        UNLATCHED=0x05,
-        UNLOCKED_LOCK_N_GO=0x06,
-        UNLATCHING=0x07,
-        CALIBRATION=0xFC,
-        BOOT_RUN=0xFD,
-        MOTOR_BLOCKED=0xFE,
-        UNDEFINED=0xFF,
+    LockState = Enum(Int8ul,
+        UNCALIBRATED = 0x00,
+        LOCKED = 0x01,
+        UNLOCKING = 0x02,
+        UNLOCKED = 0x03,
+        LOCKING = 0x04,
+        UNLATCHED = 0x05,
+        UNLOCKED_LOCK_N_GO = 0x06,
+        UNLATCHING = 0x07,
+        CALIBRATION = 0xFC,
+        BOOT_RUN = 0xFD,
+        MOTOR_BLOCKED = 0xFE,
+        UNDEFINED = 0xFF,
     )
 
-    LockAction = Enum(
-        Int8ul,
-        NONE=0x00,
-        UNLOCK=0x01,
-        LOCK=0x02,
-        UNLATCH=0x03,
-        LOCK_N_GO=0x04,
-        LOCK_N_GO_UNLATCH=0x05,
-        FULL_LOCK=0x06,
-        FOB_ACTION_1=0x81,
-        FOB_ACTION_2=0x82,
-        FOB_ACTION_3=0x83,
+    LockAction = Enum(Int8ul,
+        NONE = 0x00,
+        UNLOCK = 0x01,
+        LOCK = 0x02,
+        UNLATCH = 0x03,
+        LOCK_N_GO = 0x04,
+        LOCK_N_GO_UNLATCH = 0x05,
+        FULL_LOCK = 0x06,
+        FOB_ACTION_1 = 0x81,
+        FOB_ACTION_2 = 0x82,
+        FOB_ACTION_3 = 0x83,
     )
 
-    ButtonPressAction = Enum(
-        Int8ul,
-        NO_ACTION=0x00,
-        INTELLIGENT=0x01,
-        UNLOCK=0x02,
-        LOCK=0x03,
-        UNLATCH=0x04,
-        LOCK_N_GO=0x05,
-        SHOW_STATUS=0x06,
+    ButtonPressAction = Enum(Int8ul,
+        NO_ACTION   = 0X00,
+        INTELLIGENT = 0X01,
+        UNLOCK      = 0X02,
+        LOCK        = 0X03,
+        UNLATCH     = 0X04,
+        LOCK_N_GO   = 0X05,
+        SHOW_STATUS = 0X06
     )
 
     KeyturnerStates = Struct(
@@ -895,10 +832,8 @@ class NukiLockConst(NukiConst):
         "door_sensor_state" / Optional(NukiConst.DoorsensorState),
         "nightmode_active" / Optional(Int16ul),
         "accessory_battery_state" / Optional(Int8ul),
-        Optional(
-            Padding(4)
-        ),  # this doesn't exist in the documentation, but we see it in real world communications
-        Optional(Padding(1)),  # Nuki4 has one more.
+        Optional(Padding(4)), #this doesn't exist in the documentation, but we see it in real world communications
+        Optional(Padding(1)), #Nuki4 has one more.
     )
 
     Config = Struct(
@@ -928,7 +863,7 @@ class NukiLockConst(NukiConst):
         "undocumented" / Optional(Int8ul),
         "undocumented2" / Optional(Int8ul),
         "has_keypad_v2" / Optional(Int8ul),
-        Optional(Padding(1)),  # Nuki4 padding
+        Optional(Padding(1)), #Nuki4 padding
     )
 
     NewConfig = Struct(
@@ -1056,43 +991,40 @@ class NukiLockConst(NukiConst):
 
 class NukiOpenerConst(NukiConst):
     BLE_PAIRING_SERVICE = "a92ae100-5501-11e4-916c-0800200c9a66"
-    BLE_PAIRING_CHAR = "a92ae101-5501-11e4-916c-0800200c9a66"
-    BLE_SERVICE = "a92ae200-5501-11e4-916c-0800200c9a66"
-    BLE_CHAR = "a92ae202-5501-11e4-916c-0800200c9a66"
+    BLE_PAIRING_CHAR =    "a92ae101-5501-11e4-916c-0800200c9a66"
+    BLE_SERVICE =         "a92ae200-5501-11e4-916c-0800200c9a66"
+    BLE_CHAR =            "a92ae202-5501-11e4-916c-0800200c9a66"
 
-    LockState = Enum(
-        Int8ul,
-        UNCALIBRATED=0x00,
-        LOCKED=0x01,
-        RTO_ACTIVE=0x03,
-        OPEN=0x05,
-        OPENING=0x07,
-        UNDEFINED=0xFF,
+    LockState = Enum(Int8ul,
+        UNCALIBRATED = 0x00,
+        LOCKED = 0x01,
+        RTO_ACTIVE = 0x03,
+        OPEN = 0x05,
+        OPENING = 0x07,
+        UNDEFINED = 0xFF,
     )
 
-    LockAction = Enum(
-        Int8ul,
-        NONE=0x00,
-        ACTIVATE_RTO=0x01,
-        DEACTIVATE_RTO=0x02,
-        ELECTRIC_STRIKE_ACTUATION=0x03,
-        ACTIVATE_CM=0x04,
-        DEACTIVATE_CM=0x05,
-        FOB_ACTION_1=0x81,
-        FOB_ACTION_2=0x82,
-        FOB_ACTION_3=0x83,
+    LockAction = Enum(Int8ul,
+        NONE = 0x00,
+        ACTIVATE_RTO = 0X01,
+        DEACTIVATE_RTO = 0X02,
+        ELECTRIC_STRIKE_ACTUATION = 0X03,
+        ACTIVATE_CM = 0X04,
+        DEACTIVATE_CM = 0X05,
+        FOB_ACTION_1 = 0x81,
+        FOB_ACTION_2 = 0x82,
+        FOB_ACTION_3 = 0x83,
     )
 
-    ButtonPressAction = Enum(
-        Int8ul,
-        NO_ACTION=0x00,
-        TOGGLE_RTO=0x01,
-        ACTIVATE_RTO=0x02,
-        DEACTIVATE_RTO=0x03,
-        TOGGLE_CM=0x04,
-        ACTIVATE_CM=0x05,
-        DEACTIVATE_CM=0x06,
-        OPEN=0x07,
+    ButtonPressAction = Enum(Int8ul,
+        NO_ACTION = 0X00,
+        TOGGLE_RTO = 0X01,
+        ACTIVATE_RTO = 0X02,
+        DEACTIVATE_RTO = 0X03,
+        TOGGLE_CM = 0X04,
+        ACTIVATE_CM = 0X05,
+        DEACTIVATE_CM = 0X06,
+        OPEN = 0X07
     )
 
     KeyturnerStates = Struct(
@@ -1204,12 +1136,7 @@ class NukiOpenerConst(NukiConst):
 
 
 class NukiErrorException(Exception):
-    def __init__(
-        self,
-        error_code: NukiConst.ErrorCode,
-        command: NukiConst.NukiCommand,
-        *args: object,
-    ) -> None:
+    def __init__(self, error_code: NukiConst.ErrorCode, command : NukiConst.NukiCommand, *args: object) -> None:
         self.error_code = error_code
         self.command = command
         super().__init__(str(error_code), *args)
@@ -1217,7 +1144,6 @@ class NukiErrorException(Exception):
 
 NukiLockConst = NukiLockConst()
 NukiOpenerConst = NukiOpenerConst()
-
 
 class NukiChecksum(construct.Checksum):
     def _parse(self, stream, context, path):
@@ -1229,22 +1155,14 @@ class NukiChecksum(construct.Checksum):
         # sometimes we get a 0 checksum. this is not necessarily a checksum error.
         if hash1 != hash2 and hash1 != 0:
             raise construct.core.ChecksumError(
-                "wrong checksum, read %r, computed %r"
-                % (
-                    hash1
-                    if not isinstance(hash1, construct.lib.bytestringtype)
-                    else construct.lib.binascii.hexlify(hash1),
-                    hash2
-                    if not isinstance(hash2, construct.lib.bytestringtype)
-                    else construct.lib.binascii.hexlify(hash2),
-                ),
-                path=path,
+                "wrong checksum, read %r, computed %r" % (
+                    hash1 if not isinstance(hash1,construct.lib.bytestringtype) else construct.lib.binascii.hexlify(hash1),
+                    hash2 if not isinstance(hash2,construct.lib.bytestringtype) else construct.lib.binascii.hexlify(hash2), ),
+                path=path
             )
         return hash1
 
-
 if useLocalOffsetedEnd:
-
     class OffsettedEnd(construct.core.Subconstruct):
         r"""
         Parses all bytes in the stream till `EOF plus a negative endoffset` is reached.
@@ -1282,16 +1200,13 @@ if useLocalOffsetedEnd:
             construct.core.stream_seek(stream, curpos, 0, path)
             length = endpos + endoffset - curpos
             data = construct.core.stream_read(stream, length, path)
-            return self.subcon._parsereport(
-                construct.core.io.BytesIO(data), context, path
-            )
+            return self.subcon._parsereport(construct.core.io.BytesIO(data), context, path)
 
         def _build(self, obj, stream, context, path):
             return self.subcon._build(obj, stream, context, path)
 
         def _sizeof(self, context, path):
             raise construct.core.SizeofError(path=path)
-
 
 class SoftOffsettedEnd(OffsettedEnd):
     r"""
@@ -1301,7 +1216,6 @@ class SoftOffsettedEnd(OffsettedEnd):
 
     This is useful if there is another variable sized filed after SoftOffsettedEnd.
     """
-
     def __init__(self, endoffset, subcon):
         super().__init__(endoffset, subcon)
         if isinstance(self.subcon, Struct):
@@ -1319,19 +1233,16 @@ class SoftOffsettedEnd(OffsettedEnd):
 
     def _parse_other(self, stream, context, path):
         if useLocalOffsetedEnd:
-            # Old construct version doesn't keep track of offsets within substreams, so we have to do it manually.
+            #Old construct version doesn't keep track of offsets within substreams, so we have to do it manually.
             orgOffset = stream.tell()
         else:
             orgOffset = 0
         tmp_subcon = self.subcon
-
-        class tmpclass:
+        class tmpclass():
             self.substream = None
-
             def _parsereport(self, stream, context, path):
                 self.substream = stream
                 return tmp_subcon._parsereport(stream, context, path)
-
             def _build(self, obj, stream, context, path):
                 return tmp_subcon._build(obj, stream, context, path)
 
