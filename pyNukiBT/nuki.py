@@ -264,7 +264,7 @@ class NukiDevice:
     async def _notification_handler(self, sender: BleakGATTCharacteristic, data):
         try:
             logger.debug(f"Got incoming message from: {sender}")
-            encrypted == (sender.uuid != self._const.BLE_PAIRING_CHAR) # Do not encrypt BLE_PAIRING_CHAR messages
+            encrypted = (sender.uuid != self._const.BLE_PAIRING_CHAR) # Do not encrypt BLE_PAIRING_CHAR messages
 
             # The pairing handler is not encrypted besides the final message, _nextUltraPairingMessageEncrypted overrides the default behaviour above
             if self._device_type == NukiConst.NukiDeviceType.SMARTLOCK_ULTRA and self._nextUltraPairingMessageEncrypted:

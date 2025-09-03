@@ -855,8 +855,8 @@ class NukiUltraConst(NukiLockConst):
         "single_locked_position_offset_degrees" / Int16sl,
         "unlocked_to_locked_transition_offset_degrees" / Int16sl,
         "lock_n_go_timeout" / Int8ul,
-        "single_button_press_action" / ButtonPressAction,
-        "double_button_press_action" / ButtonPressAction,
+        "single_button_press_action" / NukiLockConst.ButtonPressAction,
+        "double_button_press_action" / NukiLockConst.ButtonPressAction,
         "detached_cylinder" / Int8ul,
         "battery_type" / NukiConst.BatteryType,
         "automatic_battery_type_detection" / Int8ul,
@@ -906,7 +906,7 @@ class NukiUltraConst(NukiLockConst):
     )
 
     UpdateTime = Struct(
-        "time" / NukiDateTime,
+        "time" / NukiConst.NukiDateTime,
         "nonce" / Bytes(32),
         "security_pin" / Int32ul,
     )
@@ -915,11 +915,11 @@ class NukiUltraConst(NukiLockConst):
         "code" / Int32ul,  # needs to be 6 digits
         "name" / PaddedString(20, "utf8"),
         "time_limited" / Int8ul,
-        "allowed_from_date" / NukiDateTime,
-        "allowed_until_date" / NukiDateTime,
-        "allowed_weekdays" / NukiWeekdaysBits,
-        "allowed_from_time" / NukiTime,
-        "allowed_until_time" / NukiTime,
+        "allowed_from_date" / NukiConst.NukiDateTime,
+        "allowed_until_date" / NukiConst.NukiDateTime,
+        "allowed_weekdays" / NukiConst.NukiWeekdaysBits,
+        "allowed_from_time" / NukiConst.NukiTime,
+        "allowed_until_time" / NukiConst.NukiTime,
         "nonce" / Bytes(32),
         "security_pin" / Int32ul,
     )
@@ -930,26 +930,26 @@ class NukiUltraConst(NukiLockConst):
         "name" / PaddedString(20, "utf8"),
         "enabled" / Int8ul,
         "time_limited" / Int8ul,
-        "allowed_from_date" / NukiDateTime,
-        "allowed_until_date" / NukiDateTime,
-        "allowed_weekdays" / NukiWeekdaysBits,
-        "allowed_from_time" / NukiTime,
-        "allowed_until_time" / NukiTime,
+        "allowed_from_date" / NukiConst.NukiDateTime,
+        "allowed_until_date" / NukiConst.NukiDateTime,
+        "allowed_weekdays" / NukiConst.NukiWeekdaysBits,
+        "allowed_from_time" / NukiConst.NukiTime,
+        "allowed_until_time" / NukiConst.NukiTime,
         "nonce" / Bytes(32),
         "security_pin" / Int32ul,
     )
 
     AuthorizationDataInvite = Struct(
         "name" / PaddedString(32, "utf8"),
-        "id_type" / NukiClientType,
+        "id_type" / NukiConst.NukiClientType,
         "shared_key" / Bytes(32),  # TODO: add shared key within class
         "remote_allowed" / Int8ul,
         "time_limited" / Int8ul,
-        "allowed_from_date" / NukiDateTime,
-        "allowed_until_date" / NukiDateTime,
-        "allowed_weekdays" / NukiWeekdaysBits,
-        "allowed_from_time" / NukiTime,
-        "allowed_until_time" / NukiTime,
+        "allowed_from_date" / NukiConst.NukiDateTime,
+        "allowed_until_date" / NukiConst.NukiDateTime,
+        "allowed_weekdays" / NukiConst.NukiWeekdaysBits,
+        "allowed_from_time" / NukiConst.NukiTime,
+        "allowed_until_time" / NukiConst.NukiTime,
         "nonce" / Bytes(32),
         "security_pin" / Int32ul,
     )
@@ -960,11 +960,11 @@ class NukiUltraConst(NukiLockConst):
         "enabled" / Int8ul,
         "remote_allowed" / Int8ul,
         "time_limited" / Int8ul,
-        "allowed_from_date" / NukiDateTime,
-        "allowed_until_date" / NukiDateTime,
-        "allowed_weekdays" / NukiWeekdaysBits,
-        "allowed_from_time" / NukiTime,
-        "allowed_until_time" / NukiTime,
+        "allowed_from_date" / NukiConst.NukiDateTime,
+        "allowed_until_date" / NukiConst.NukiDateTime,
+        "allowed_weekdays" / NukiConst.NukiWeekdaysBits,
+        "allowed_from_time" / NukiConst.NukiTime,
+        "allowed_until_time" / NukiConst.NukiTime,
         "nonce" / Bytes(32),
         "security_pin" / Int32ul,
     )
@@ -1135,6 +1135,7 @@ class NukiErrorException(Exception):
 
 NukiLockConst = NukiLockConst()
 NukiOpenerConst = NukiOpenerConst()
+NukiUltraConst = NukiUltraConst()
 
 class NukiChecksum(construct.Checksum):
     def _parse(self, stream, context, path):
