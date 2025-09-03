@@ -32,8 +32,6 @@ class NukiDevice:
         bridge_private_key,
         app_id,
         name,
-        pin,
-        is_ultra,
         client_type: NukiConst.NukiClientType = NukiConst.NukiClientType.BRIDGE,
         ble_device=None,
         get_ble_device=None,
@@ -45,8 +43,6 @@ class NukiDevice:
         self._bridge_private_key = bridge_private_key
         self._app_id = app_id
         self._name = name
-        self._pin = pin
-        self._is_ultra = is_ultra
         self._client_type = client_type
 
         self.rssi = None
@@ -57,6 +53,8 @@ class NukiDevice:
         self._poll_needed_config = True
         self.last_action_status = None
         self.last_error_command = None
+        self._device_type = None
+        self._const = None
 
         self._pairing_handle = None
         self._client = None
@@ -79,13 +77,6 @@ class NukiDevice:
         self._messages = []
 
         self._callbacks = []
-
-        if is_ultra:
-            self._device_type = NukiConst.NukiDeviceType.SMARTLOCK_ULTRA
-            self._const = NukiUltraConst
-        else:
-            self._device_type = None
-            self._const = None
 
         if nuki_public_key and bridge_private_key:
             self._create_shared_key()
@@ -423,9 +414,15 @@ class NukiDevice:
                 if services.get_characteristic(NukiOpenerConst.BLE_PAIRING_CHAR):
                     self._device_type = NukiConst.NukiDeviceType.OPENER
                     self._const = NukiOpenerConst
-                else:
+                elif services.get_characteristic(NukiLockConst.BLE_PAIRING_CHAR):
                     self._device_type = NukiConst.NukiDeviceType.SMARTLOCK_1_2
                     self._const = NukiLockConst
+                elif services.get_characteristic(NukiUltraConst.BLE_PAIRING_CHAR):
+                    self._device_type = NukiConst.NukiDeviceType.SMARTLOCK_ULTRA
+                    self._const = NukiUltraConst
+                else:
+                    logger.error("Could not determine device type based on available BLE characteristics.")
+                    logger.exception(NukiErrorException)
             await self._safe_start_notify(
                 self._const.BLE_PAIRING_CHAR, self._notification_handler
             )
@@ -547,7 +544,7 @@ class NukiDevice:
             logger.debug(f"Config: {self.config}")
             self._poll_needed_config = False
 
-    async def pair(self):
+    async def pair(self, security_pin):
         async with self._operation_lock:
             payload = self._const.NukiCommand.build(self._const.NukiCommand.PUBLIC_KEY)
             cmd = self._prepare_command(self._const.NukiCommand.REQUEST_DATA, payload)
@@ -583,7 +580,7 @@ class NukiDevice:
                 payload = {
                     "app_id": app_id,
                     "name": name,
-                    "security_pin": self._pin,
+                    "security_pin": security_pin,
                 }
                 msg = await self._send_encrypted_command(
                     self._const.NukiCommand.AUTHORIZATION_DATA,

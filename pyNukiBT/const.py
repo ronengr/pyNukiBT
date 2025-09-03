@@ -516,7 +516,8 @@ class NukiConst:
             "index" / Int32ul,
             "timestamp" / self.NukiDateTime,
             "auth_id" / Bytes(4),
-            "name" / PaddedString(32, "utf8"),
+            # "name" / PaddedString(32, "utf8"),
+            "name" / Bytes(32),
             "type" / self.LogEntryType,
             "data" / Switch(this.type, {
                                     self.LogEntryType.LOGGING_ENABLED_DISABLED : self.LogEntryExt1,
