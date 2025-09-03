@@ -188,6 +188,7 @@ class NukiConst:
         UPDATE_KEYPAD_CODE            = 0x0046,
         REMOVE_KEYPAD_CODE            = 0x0047,
         KEYPAD_ACTION                 = 0x0048,
+        AUTHORIZATION_INFO            = 0x004C, # Nuki Ultra only
         CONTINUOUS_MODE_ACTION        = 0x0057, # Opener only
         SIMPLE_LOCK_ACTION            = 0x0100,
     )
@@ -536,8 +537,9 @@ class NukiConst:
         self.NukiCommand.PUBLIC_KEY                    : self.PublicKey,
         self.NukiCommand.CHALLENGE                     : self.Challenge,
         # self.NukiCommand.AUTHORIZATION_AUTHENTICATOR   : self.AuthorizationAuthenticator,
-        # self.NukiCommand.AUTHORIZATION_DATA            : self.AuthorizationData,
+        self.NukiCommand.AUTHORIZATION_DATA            : self.AuthorizationData,
         self.NukiCommand.AUTHORIZATION_ID              : self.AuthorizationId,
+        self.NukiCommand.AUTHORIZATION_INFO              : self.AuthorizationInfo,
         # self.NukiCommand.REMOVE_USER_AUTHORIZATION     : self.RemoveUserAuthorization,
         # self.NukiCommand.REQUEST_AUTHORIZATION_ENTRIES : self.RequestAuthorizationEntries,
         self.NukiCommand.AUTHORIZATION_ENTRY           : self.AuthorizationEntry,
