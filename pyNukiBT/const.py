@@ -97,14 +97,13 @@ class NukiConst:
         SW = 2,
     )
 
-    NukiDeviceType = Enum(Byte,
-        SMARTLOCK_1_2 = 0,
-        OPENER = 2,
-        SMARTDOOR = 3,
-        SMARTLOCK_3 = 4,
-        SMARTLOCK_ULTRA=5,
+    NukiDeviceType = Enum(Int8ul,
+        SMARTLOCK_1_2 = 0x0,
+        OPENER = 0x2,
+        SMARTDOOR = 0x3,
+        SMARTLOCK_3_4 = 0x4,
+        SMARTLOCK_ULTRA = 0x5,
     )
-
 
     StatusCode = Enum(Int8ul,
         COMPLETED = 0x0,
@@ -118,9 +117,9 @@ class NukiConst:
         DOOR_OPENED = 0x03,
         DOOR_STATE_UNKOWN = 0x04,
         CALIBRATING = 0x05,
-        UNCALIBRATED = 0x16,
-        REMOVED = 0x240,
-        UNKOWN = 0x255,
+        UNCALIBRATED = 0x10,
+        TAMPERED = 0xF0,
+        UNKOWN = 0xFF,
     )
 
     LockActionCompletionStatus = Enum(Int8ul,
@@ -341,6 +340,20 @@ class NukiConst:
     ErrorReport = Struct(
         "error_code" / ErrorCode,
         "command_identifier" / NukiCommand
+    )
+
+    MatterStatus = Enum(Int8ul,
+        UNAVAILABLE = 0x00,
+        DISABLED = 0x01,
+        DISABLED_4 = 0x02,
+        ENABLED = 0x03,
+        PAIRED = 0x04,
+    )
+
+    MotorSpeed = Enum(Int8ul,
+        STANDARD = 0x00,
+        INSANE = 0x01,
+        GENTLE = 0x02,
     )
 
     NukiEncryptedMessage = Struct(
@@ -735,8 +748,12 @@ class NukiLockConst(NukiConst):
         "door_sensor_state" / Optional(NukiConst.DoorsensorState),
         "nightmode_active" / Optional(Int16ul),
         "accessory_battery_state" / Optional(Int8ul),
-        Optional(Padding(4)), #this doesn't exist in the documentation, but we see it in real world communications
-        Optional(Padding(1)), #Nuki4 has one more.
+        "remote_access_status" / Optional(Int8ul),
+        "ble_strength" / Optional(Int8sl),
+        "wifi_strength" / Optional(Int8sl),
+        "wifi_status" / Optional(Int8ul),
+        "mqtt_status" / Optional(Int8ul),
+        "thread_status" / Optional(Int8ul),
     )
 
     Config = Struct(
@@ -763,10 +780,10 @@ class NukiLockConst(NukiConst):
         "hardware_revision" / Int8ul[2],
         "homekit_status" / Int8ul,
         "timezone_id" / NukiConst.TimeZoneId,
-        "undocumented" / Optional(Int8ul),
-        "undocumented2" / Optional(Int8ul),
+        "device_type" / Optional(NukiConst.NukiDeviceType),
+        "capabilities" / Optional(Int8ul),
         "has_keypad_v2" / Optional(Int8ul),
-        Optional(Padding(1)), #Nuki4 padding
+        "matter_status" / Optional(NukiConst.MatterStatus),
     )
 
     @functools.cached_property
@@ -845,6 +862,8 @@ class NukiLockConst(NukiConst):
             "auto_update_enabled" / Int8ul,
             "nonce" / Bytes(32),
             "security_pin" / self.NukiSecurityPinDataType,
+            "motor_speed" / Optional(self.MotorSpeed),
+            "night_mode_slow_speed" / Int8ul,
         )
 
 
