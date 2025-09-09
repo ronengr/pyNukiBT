@@ -90,16 +90,19 @@ class NukiConst:
         K_ERROR_FIRMWARE_UPDATE_NEEDED = 0x4D, #Returned during any motor action if a firmware update is mandatory
     )
 
+    NukiSecurityPinDataType = Int16ul
+
     BridgeType = Enum(Byte,
         HW = 1,
         SW = 2,
     )
 
-    NukiDeviceType = Enum(Byte,
-        SMARTLOCK_1_2 = 0,
-        OPENER = 2,
-        SMARTDOOR = 3,
-        SMARTLOCK_3 = 4,
+    NukiDeviceType = Enum(Int8ul,
+        SMARTLOCK_1_2 = 0x0,
+        OPENER = 0x2,
+        SMARTDOOR = 0x3,
+        SMARTLOCK_3_4 = 0x4,
+        SMARTLOCK_ULTRA = 0x5,
     )
 
     StatusCode = Enum(Int8ul,
@@ -114,9 +117,9 @@ class NukiConst:
         DOOR_OPENED = 0x03,
         DOOR_STATE_UNKOWN = 0x04,
         CALIBRATING = 0x05,
-        UNCALIBRATED = 0x16,
-        REMOVED = 0x240,
-        UNKOWN = 0x255,
+        UNCALIBRATED = 0x10,
+        TAMPERED = 0xF0,
+        UNKOWN = 0xFF,
     )
 
     LockActionCompletionStatus = Enum(Int8ul,
@@ -187,6 +190,7 @@ class NukiConst:
         UPDATE_KEYPAD_CODE            = 0x0046,
         REMOVE_KEYPAD_CODE            = 0x0047,
         KEYPAD_ACTION                 = 0x0048,
+        AUTHORIZATION_INFO            = 0x004C, # Nuki Ultra only
         CONTINUOUS_MODE_ACTION        = 0x0057, # Opener only
         SIMPLE_LOCK_ACTION            = 0x0100,
     )
@@ -338,6 +342,20 @@ class NukiConst:
         "command_identifier" / NukiCommand
     )
 
+    MatterStatus = Enum(Int8ul,
+        UNAVAILABLE = 0x00,
+        DISABLED = 0x01,
+        DISABLED_4 = 0x02,
+        ENABLED = 0x03,
+        PAIRED = 0x04,
+    )
+
+    MotorSpeed = Enum(Int8ul,
+        STANDARD = 0x00,
+        INSANE = 0x01,
+        GENTLE = 0x02,
+    )
+
     NukiEncryptedMessage = Struct(
         "nonce" / Bytes(24),
         "auth_id" / Bytes(4),
@@ -345,38 +363,46 @@ class NukiConst:
         "encrypted" / Bytes(this.length),
     )
 
-    RequestLogEntries = Struct(
-        "start_index" / Int32ul,
-        "count" / Int16ul,
-        "sort_order" / Int8ul,
-        "total_count" / Int8ul,
-        "nonce" / Bytes(32),
-        "security_pin" / Int16ul,
+    @functools.cached_property
+    def RequestLogEntries(self):
+        return Struct(
+            "start_index" / Int32ul,
+            "count" / Int16ul,
+            "sort_order" / Int8ul,
+            "total_count" / Int8ul,
+            "nonce" / Bytes(32),
+            "security_pin" / self.NukiSecurityPinDataType,
+        )
+
+    @functools.cached_property
+    def VerifySecurityPin(self):
+        return Struct(
+            "nonce" / Bytes(32),
+            "security_pin" / self.NukiSecurityPinDataType,
+        )
+
+    @functools.cached_property
+    def UpdateTime(self):
+        return Struct(
+            "time" / self.NukiDateTime,
+            "nonce" / Bytes(32),
+            "security_pin" / self.NukiSecurityPinDataType,
     )
 
-    VerifySecurityPin = Struct(
-        "nonce" / Bytes(32),
-        "security_pin" / Int16ul,
-    )
-
-    UpdateTime = Struct(
-        "time" / NukiDateTime,
-        "nonce" / Bytes(32),
-        "security_pin" / Int16ul,
-    )
-
-    AddKeypadCode = Struct(
-        "code" / Int32ul, #needs to be 6 digits
-        "name" / PaddedString(20, "utf8"),
-        "time_limited" / Int8ul,
-        "allowed_from_date" / NukiDateTime,
-        "allowed_until_date" / NukiDateTime,
-        "allowed_weekdays" / NukiWeekdaysBits,
-        "allowed_from_time" / NukiTime,
-        "allowed_until_time" / NukiTime,
-        "nonce" / Bytes(32),
-        "security_pin" / Int16ul,
-    )
+    @functools.cached_property
+    def AddKeypadCode(self):
+        return Struct(
+            "code" / Int32ul, #needs to be 6 digits
+            "name" / PaddedString(20, "utf8"),
+            "time_limited" / Int8ul,
+            "allowed_from_date" / self.NukiDateTime,
+            "allowed_until_date" / self.NukiDateTime,
+            "allowed_weekdays" / self.NukiWeekdaysBits,
+            "allowed_from_time" / self.NukiTime,
+            "allowed_until_time" / self.NukiTime,
+            "nonce" / Bytes(32),
+            "security_pin" / self.NukiSecurityPinDataType,
+        )
 
     KeypadCodeEntry = Struct(
         "code_id" / Int16ul,
@@ -394,20 +420,22 @@ class NukiConst:
         "allowed_until_time" / NukiTime,
     )
 
-    UpdatedKeypadCode = Struct(
-        "code_id" / Int16ul,
-        "code" / Int32ul,
-        "name" / PaddedString(20, "utf8"),
-        "enabled" / Int8ul,
-        "time_limited" / Int8ul,
-        "allowed_from_date" / NukiDateTime,
-        "allowed_until_date" / NukiDateTime,
-        "allowed_weekdays" / NukiWeekdaysBits,
-        "allowed_from_time" / NukiTime,
-        "allowed_until_time" / NukiTime,
-        "nonce" / Bytes(32),
-        "security_pin" / Int16ul,
-    )
+    @functools.cached_property
+    def UpdatedKeypadCode(self):
+        return Struct(
+            "code_id" / Int16ul,
+            "code" / Int32ul,
+            "name" / PaddedString(20, "utf8"),
+            "enabled" / Int8ul,
+            "time_limited" / Int8ul,
+            "allowed_from_date" / self.NukiDateTime,
+            "allowed_until_date" / self.NukiDateTime,
+            "allowed_weekdays" / self.NukiWeekdaysBits,
+            "allowed_from_time" / self.NukiTime,
+            "allowed_until_time" / self.NukiTime,
+            "nonce" / Bytes(32),
+            "security_pin" / self.NukiSecurityPinDataType,
+        )
 
     AuthorizationEntry = Struct(
         "auth_id" / Bytes(4),
@@ -426,35 +454,39 @@ class NukiConst:
         "allowed_until_time" / NukiTime,
     )
 
-    AuthorizationDataInvite = Struct(
-        "name" / PaddedString(32, "utf8"),
-        "id_type" / NukiClientType,
-        "shared_key" / Bytes(32), #TODO: add shared key within class
-        "remote_allowed" / Int8ul,
-        "time_limited" / Int8ul,
-        "allowed_from_date" / NukiDateTime,
-        "allowed_until_date" / NukiDateTime,
-        "allowed_weekdays" / NukiWeekdaysBits,
-        "allowed_from_time" / NukiTime,
-        "allowed_until_time" / NukiTime,
-        "nonce" / Bytes(32),
-        "security_pin" / Int16ul,
-    )
+    @functools.cached_property
+    def AuthorizationDataInvite(self):
+        return Struct(
+            "name" / PaddedString(32, "utf8"),
+            "id_type" / self.NukiClientType,
+            "shared_key" / Bytes(32), #TODO: add shared key within class
+            "remote_allowed" / Int8ul,
+            "time_limited" / Int8ul,
+            "allowed_from_date" / self.NukiDateTime,
+            "allowed_until_date" / self.NukiDateTime,
+            "allowed_weekdays" / self.NukiWeekdaysBits,
+            "allowed_from_time" / self.NukiTime,
+            "allowed_until_time" / self.NukiTime,
+            "nonce" / Bytes(32),
+            "security_pin" / self.NukiSecurityPinDataType,
+        )
 
-    UpdatedAuthorizationEntry = Struct(
-        "auth_id" / Bytes(4),
-        "name" / PaddedString(32, "utf8"),
-        "enabled" / Int8ul,
-        "remote_allowed" / Int8ul,
-        "time_limited" / Int8ul,
-        "allowed_from_date" / NukiDateTime,
-        "allowed_until_date" / NukiDateTime,
-        "allowed_weekdays" / NukiWeekdaysBits,
-        "allowed_from_time" / NukiTime,
-        "allowed_until_time" / NukiTime,
-        "nonce" / Bytes(32),
-        "security_pin" / Int16ul,
-    )
+    @functools.cached_property
+    def UpdatedAuthorizationEntry(self):
+        return Struct(
+            "auth_id" / Bytes(4),
+            "name" / PaddedString(32, "utf8"),
+            "enabled" / Int8ul,
+            "remote_allowed" / Int8ul,
+            "time_limited" / Int8ul,
+            "allowed_from_date" / self.NukiDateTime,
+            "allowed_until_date" / self.NukiDateTime,
+            "allowed_weekdays" / self.NukiWeekdaysBits,
+            "allowed_from_time" / self.NukiTime,
+            "allowed_until_time" / self.NukiTime,
+            "nonce" / Bytes(32),
+            "security_pin" / self.NukiSecurityPinDataType,
+        )
 
     RequestData = Struct(
         "command" / NukiCommand
@@ -515,7 +547,8 @@ class NukiConst:
             "index" / Int32ul,
             "timestamp" / self.NukiDateTime,
             "auth_id" / Bytes(4),
-            "name" / PaddedString(32, "utf8"),
+            # "name" / PaddedString(32, "utf8"),
+            "name" / Bytes(32),
             "type" / self.LogEntryType,
             "data" / Switch(this.type, {
                                     self.LogEntryType.LOGGING_ENABLED_DISABLED : self.LogEntryExt1,
@@ -534,8 +567,9 @@ class NukiConst:
         self.NukiCommand.PUBLIC_KEY                    : self.PublicKey,
         self.NukiCommand.CHALLENGE                     : self.Challenge,
         # self.NukiCommand.AUTHORIZATION_AUTHENTICATOR   : self.AuthorizationAuthenticator,
-        # self.NukiCommand.AUTHORIZATION_DATA            : self.AuthorizationData,
+        self.NukiCommand.AUTHORIZATION_DATA            : self.AuthorizationData,
         self.NukiCommand.AUTHORIZATION_ID              : self.AuthorizationId,
+        self.NukiCommand.AUTHORIZATION_INFO              : self.AuthorizationInfo,
         # self.NukiCommand.REMOVE_USER_AUTHORIZATION     : self.RemoveUserAuthorization,
         # self.NukiCommand.REQUEST_AUTHORIZATION_ENTRIES : self.RequestAuthorizationEntries,
         self.NukiCommand.AUTHORIZATION_ENTRY           : self.AuthorizationEntry,
@@ -651,7 +685,7 @@ class NukiConst:
             "time" / self.NukiTime,
             "lock_action" / self.LockAction,
             "nonce" / Bytes(32),
-            "security_pin" / Int16ul,
+            "security_pin" / self.NukiSecurityPinDataType,
         )
 
 
@@ -714,8 +748,12 @@ class NukiLockConst(NukiConst):
         "door_sensor_state" / Optional(NukiConst.DoorsensorState),
         "nightmode_active" / Optional(Int16ul),
         "accessory_battery_state" / Optional(Int8ul),
-        Optional(Padding(4)), #this doesn't exist in the documentation, but we see it in real world communications
-        Optional(Padding(1)), #Nuki4 has one more.
+        "remote_access_status" / Optional(Int8ul),
+        "ble_strength" / Optional(Int8sl),
+        "wifi_strength" / Optional(Int8sl),
+        "wifi_status" / Optional(Int8ul),
+        "mqtt_status" / Optional(Int8ul),
+        "thread_status" / Optional(Int8ul),
     )
 
     Config = Struct(
@@ -742,31 +780,33 @@ class NukiLockConst(NukiConst):
         "hardware_revision" / Int8ul[2],
         "homekit_status" / Int8ul,
         "timezone_id" / NukiConst.TimeZoneId,
-        "undocumented" / Optional(Int8ul),
-        "undocumented2" / Optional(Int8ul),
+        "device_type" / Optional(NukiConst.NukiDeviceType),
+        "capabilities" / Optional(Int8ul),
         "has_keypad_v2" / Optional(Int8ul),
-        Optional(Padding(1)), #Nuki4 padding
+        "matter_status" / Optional(NukiConst.MatterStatus),
     )
 
-    NewConfig = Struct(
-        "name" / PaddedString(32, "utf8"),
-        "latitude" / Float32l,
-        "longitude" / Float32l,
-        "auto_unlatch" / Int8ul,
-        "pairing_enabled" / Int8ul,
-        "button_enabled" / Int8ul,
-        "led_enabled" / Int8ul,
-        "led_brightness" / Int8ul,
-        "timezone_offset" / Int16sl,
-        "dst_mode" / Int8ul,
-        "fob_action_1" / Int8ul,
-        "fob_action_2" / Int8ul,
-        "fob_action_3" / Int8ul,
-        "single_lock" / Int8ul,
-        "advertising_mode" / NukiConst.AdvertisingMode,
-        "timezone_id" / NukiConst.TimeZoneId,
-        "nonce" / Bytes(32),
-        "security_pin" / Int16ul,
+    @functools.cached_property
+    def Newconfig(self):
+        return Struct(
+            "name" / PaddedString(32, "utf8"),
+            "latitude" / Float32l,
+            "longitude" / Float32l,
+            "auto_unlatch" / Int8ul,
+            "pairing_enabled" / Int8ul,
+            "button_enabled" / Int8ul,
+            "led_enabled" / Int8ul,
+            "led_brightness" / Int8ul,
+            "timezone_offset" / Int16sl,
+            "dst_mode" / Int8ul,
+            "fob_action_1" / Int8ul,
+            "fob_action_2" / Int8ul,
+            "fob_action_3" / Int8ul,
+            "single_lock" / Int8ul,
+            "advertising_mode" / self.AdvertisingMode,
+            "timezone_id" / self.TimeZoneId,
+            "nonce" / Bytes(32),
+            "security_pin" / self.NukiSecurityPinDataType,
     )
 
     AdvancedConfig = Struct(
@@ -795,33 +835,58 @@ class NukiLockConst(NukiConst):
         "auto_update_enabled" / Int8ul,
     )
 
-    NewAdvancedConfig = Struct(
-        "unlocked_position_offset_degrees" / Int16sl,
-        "locked_position_offset_degrees" / Int16sl,
-        "single_locked_position_offset_degrees" / Int16sl,
-        "unlocked_to_locked_transition_offset_degrees" / Int16sl,
-        "lock_n_go_timeout" / Int8ul,
-        "single_button_press_action" / ButtonPressAction,
-        "double_button_press_action" / ButtonPressAction,
-        "detached_cylinder" / Int8ul,
-        "battery_type" / NukiConst.BatteryType,
-        "automatic_battery_type_detection" / Int8ul,
-        "unlatch_duration" / Int8ul,
-        "auto_lock_timeout" / Int16ul,
-        "auto_unlock_disabled" / Int8ul,
-        "night_mode_enabled" / Int8ul,
-        "night_mode_start_time" / NukiConst.NukiTime,
-        "night_mode_end_time" / NukiConst.NukiTime,
-        "night_mode_auto_lock_enabled" / Int8ul,
-        "night_mode_auto_unlock_disabled" / Int8ul,
-        "night_mode_immediate_lock_on_start" / Int8ul,
-        "auto_lock_enabled" / Int8ul,
-        "immediate_auto_lock_enabled" / Int8ul,
-        "auto_update_enabled" / Int8ul,
-        "nonce" / Bytes(32),
-        "security_pin" / Int16ul,
+    @functools.cached_property
+    def NewAdvancedConfig(self):
+        return Struct(
+            "unlocked_position_offset_degrees" / Int16sl,
+            "locked_position_offset_degrees" / Int16sl,
+            "single_locked_position_offset_degrees" / Int16sl,
+            "unlocked_to_locked_transition_offset_degrees" / Int16sl,
+            "lock_n_go_timeout" / Int8ul,
+            "single_button_press_action" / self.ButtonPressAction,
+            "double_button_press_action" / self.ButtonPressAction,
+            "detached_cylinder" / Int8ul,
+            "battery_type" / self.BatteryType,
+            "automatic_battery_type_detection" / Int8ul,
+            "unlatch_duration" / Int8ul,
+            "auto_lock_timeout" / Int16ul,
+            "auto_unlock_disabled" / Int8ul,
+            "night_mode_enabled" / Int8ul,
+            "night_mode_start_time" / self.NukiTime,
+            "night_mode_end_time" / self.NukiTime,
+            "night_mode_auto_lock_enabled" / Int8ul,
+            "night_mode_auto_unlock_disabled" / Int8ul,
+            "night_mode_immediate_lock_on_start" / Int8ul,
+            "auto_lock_enabled" / Int8ul,
+            "immediate_auto_lock_enabled" / Int8ul,
+            "auto_update_enabled" / Int8ul,
+            "nonce" / Bytes(32),
+            "security_pin" / self.NukiSecurityPinDataType,
+            "motor_speed" / Optional(self.MotorSpeed),
+            "night_mode_slow_speed" / Int8ul,
+        )
+
+
+class NukiUltraConst(NukiLockConst):
+    BLE_PAIRING_SERVICE = "a92ee300-5501-11e4-916c-0800200c9a66"
+    BLE_PAIRING_CHAR = "a92ee301-5501-11e4-916c-0800200c9a66"
+
+    NukiSecurityPinDataType = Int32ul
+
+    AuthorizationId = Struct(
+        "auth_id" / Bytes(4),
+        "uuid" / Bytes(16),
     )
 
+    AuthorizationInfo = Struct(
+        "security_pin_info" / Int8ul,
+    )
+
+    AuthorizationData = Struct(
+        "app_id" / Bytes(4),
+        "name" / Bytes(32),
+        "security_pin" / Int32ul,
+    )
 
 class NukiOpenerConst(NukiConst):
     BLE_PAIRING_SERVICE = "a92ae100-5501-11e4-916c-0800200c9a66"
@@ -978,6 +1043,7 @@ class NukiErrorException(Exception):
 
 NukiLockConst = NukiLockConst()
 NukiOpenerConst = NukiOpenerConst()
+NukiUltraConst = NukiUltraConst()
 
 class NukiChecksum(construct.Checksum):
     def _parse(self, stream, context, path):
