@@ -266,11 +266,6 @@ class NukiDevice:
 
             logger.debug(f"Got command: {msg.command}")
 
-            if msg.command == self._const.NukiCommand.LOG_ENTRY:
-                msg.payload.name = msg.payload.name.replace(
-                    b"\xd1\x01 \x01", b""
-                )  # Keypad 2.0 has these unknown characters in the padding, removed to make UTF8 decoding work
-                msg.payload.name = msg.payload.name.decode("utf-8")
             if msg.command == self._const.NukiCommand.ERROR_REPORT:
                 if msg.payload.error_code == self._const.ErrorCode.P_ERROR_NOT_PAIRING:
                     logger.error("UNPAIRED! Put Nuki in pairing mode by pressing the button 6 seconds, Then try again")

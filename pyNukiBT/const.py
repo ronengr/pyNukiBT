@@ -1,7 +1,8 @@
 from packaging import version
 import construct
-from construct import Bit, BitStruct, Optional, Padding, Struct, Byte, Enum, Int8ul, Int16ul, Int32ul, Int8sl, Int16sl, Float32l, PaddedString, Bytes, Switch, GreedyBytes, this, Adapter
+from construct import Bit, BitStruct, FixedSized, NullStripped, Optional, Padding, StringEncoded, Struct, Byte, Enum, Int8ul, Int16ul, Int32ul, Int8sl, Int16sl, Float32l, PaddedString, Bytes, Switch, GreedyBytes, this, Adapter
 from construct.lib.containers import Container
+from construct.core import encodingunit
 import functools
 import crccheck
 from datetime import datetime
@@ -547,8 +548,7 @@ class NukiConst:
             "index" / Int32ul,
             "timestamp" / self.NukiDateTime,
             "auth_id" / Bytes(4),
-            # "name" / PaddedString(32, "utf8"),
-            "name" / Bytes(32),
+            "name" / PaddedStringSafe(32, "utf8", "ignore"), # Keypad 2.0 has these unknown characters in the padding, use PaddedStringSafe to ignore them
             "type" / self.LogEntryType,
             "data" / Switch(this.type, {
                                     self.LogEntryType.LOGGING_ENABLED_DISABLED : self.LogEntryExt1,
@@ -1151,3 +1151,21 @@ class SoftOffsettedEnd(OffsettedEnd):
         stream.seek(self.subcon.substream.tell() + orgOffset, 0)
         self.subcon = tmp_subcon
         return ret
+
+class StringEncodedSafe(StringEncoded):
+    def __init__(self, subcon, encoding, errors):
+        super().__init__(subcon,encoding)
+        self.errors=errors
+    def _decode(self, obj, context, path):
+        try:
+            return obj.decode(self.encoding, self.errors).rstrip('\x00')
+        except:
+            raise
+
+
+def PaddedStringSafe(length, encoding, errors):
+    macro = StringEncodedSafe(FixedSized(length, NullStripped(GreedyBytes, pad=encodingunit(encoding))), encoding, errors)
+    def _emitfulltype(ksy, bitwise):
+        return dict(size=length, type="strz", encoding=encoding, errors=errors)
+    macro._emitfulltype = _emitfulltype
+    return macro
