@@ -539,8 +539,11 @@ class NukiDevice:
             logger.debug(f"Config: {self.config}")
             self._poll_needed_config = False
 
-    async def pair(self, security_pin):
+    async def pair(self, security_pin=None):
+        if self._device_type == NukiConst.NukiDeviceType.SMARTLOCK_ULTRA and security_pin is None:
+            raise ValueError("security_pin is required for pairing with Nuki Smart Lock Ultra")
         async with self._operation_lock:
+            self._nextUltraPairingMessageEncrypted = False
             payload = self._const.NukiCommand.build(self._const.NukiCommand.PUBLIC_KEY)
             cmd = self._prepare_command(self._const.NukiCommand.REQUEST_DATA, payload)
             msg = await self._send_command(
@@ -558,8 +561,6 @@ class NukiDevice:
             value_r = (
                 self._bridge_public_key + self._nuki_public_key + msg["nonce"]
             )
-            app_id = self._app_id.to_bytes(4, "little")
-            name = self._name.encode("utf-8").ljust(32, b"\0")
             payload = hmac.new(
                 self._shared_key, msg=value_r, digestmod=hashlib.sha256
             ).digest()
@@ -573,8 +574,8 @@ class NukiDevice:
                 )
                 self._nextUltraPairingMessageEncrypted = True
                 payload = {
-                    "app_id": app_id,
-                    "name": name,
+                    "app_id": self._app_id,
+                    "name": self._name,
                     "security_pin": security_pin,
                 }
                 msg = await self._send_encrypted_command(
@@ -594,6 +595,8 @@ class NukiDevice:
                 )
                 type_id = self._const.NukiClientType.build(self._client_type)
                 nonce = nacl.utils.random(32)
+                app_id = self._app_id.to_bytes(4, "little")
+                name = self._name.encode("utf-8").ljust(32, b"\0")
                 value_r = type_id + app_id + name + nonce + msg["nonce"]
                 payload = hmac.new(
                     self._shared_key, msg=value_r, digestmod=hashlib.sha256

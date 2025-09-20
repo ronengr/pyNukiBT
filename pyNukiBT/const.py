@@ -133,6 +133,8 @@ class NukiConst:
         CLUTCH_FAILURE = 0x06,
         MOTOR_POWER_FAILURE = 0x07,
         INCOMPLETE = 0x08,
+        INVALID_CODE = 0xE0,
+        INVALID_FINGERPRINT = 0xE1,
         OTHER_ERROR = 0xFE,
         UNKNOWN = 0xFF,
     )
@@ -569,7 +571,7 @@ class NukiConst:
         # self.NukiCommand.AUTHORIZATION_AUTHENTICATOR   : self.AuthorizationAuthenticator,
         self.NukiCommand.AUTHORIZATION_DATA            : self.AuthorizationData,
         self.NukiCommand.AUTHORIZATION_ID              : self.AuthorizationId,
-        self.NukiCommand.AUTHORIZATION_INFO              : self.AuthorizationInfo,
+        self.NukiCommand.AUTHORIZATION_INFO            : self.AuthorizationInfo,
         # self.NukiCommand.REMOVE_USER_AUTHORIZATION     : self.RemoveUserAuthorization,
         # self.NukiCommand.REQUEST_AUTHORIZATION_ENTRIES : self.RequestAuthorizationEntries,
         self.NukiCommand.AUTHORIZATION_ENTRY           : self.AuthorizationEntry,
@@ -746,7 +748,7 @@ class NukiLockConst(NukiConst):
         "last_lock_action_trigger" / NukiConst.ActionTrigger,
         "last_lock_action_completion_status" / NukiConst.LockActionCompletionStatus,
         "door_sensor_state" / Optional(NukiConst.DoorsensorState),
-        "nightmode_active" / Optional(Int16ul),
+        "nightmode_active" / Optional(Int8ul),
         "accessory_battery_state" / Optional(Int8ul),
         "remote_access_status" / Optional(Int8ul),
         "ble_strength" / Optional(Int8sl),
@@ -860,10 +862,10 @@ class NukiLockConst(NukiConst):
             "auto_lock_enabled" / Int8ul,
             "immediate_auto_lock_enabled" / Int8ul,
             "auto_update_enabled" / Int8ul,
+            "motor_speed" / Optional(self.MotorSpeed),
+            "night_mode_slow_speed" / Optional(Int8ul),
             "nonce" / Bytes(32),
             "security_pin" / self.NukiSecurityPinDataType,
-            "motor_speed" / Optional(self.MotorSpeed),
-            "night_mode_slow_speed" / Int8ul,
         )
 
 
@@ -883,9 +885,9 @@ class NukiUltraConst(NukiLockConst):
     )
 
     AuthorizationData = Struct(
-        "app_id" / Bytes(4),
-        "name" / Bytes(32),
-        "security_pin" / Int32ul,
+        "app_id" / Int32ul,
+        "name" / PaddedString(32, "utf8"),
+        "security_pin" / NukiSecurityPinDataType,
     )
 
 class NukiOpenerConst(NukiConst):
