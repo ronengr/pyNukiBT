@@ -336,6 +336,19 @@ class NukiConst:
         "nonce" / Bytes(32),
     )
 
+    AuthorizationInfo = Struct(
+        "security_pin_info" / Int8ul,
+    )
+
+    AuthorizationData = Struct(
+        "authenticator" / Bytes(32),
+        "id_type" / NukiClientType,
+        "id" / Int32ul,
+        "name" / PaddedString(32, "utf8"),
+        "nonce_abf" / Bytes(32),
+        "nonce_nk" / Bytes(32),
+    )
+
     NukiCommandStatus = Struct(
         "status" / StatusCode
     )
@@ -878,10 +891,6 @@ class NukiUltraConst(NukiLockConst):
     AuthorizationId = Struct(
         "auth_id" / Bytes(4),
         "uuid" / Bytes(16),
-    )
-
-    AuthorizationInfo = Struct(
-        "security_pin_info" / Int8ul,
     )
 
     AuthorizationData = Struct(
