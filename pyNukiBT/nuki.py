@@ -17,6 +17,7 @@ import nacl.utils
 import nacl.secret
 from nacl.bindings.crypto_box import crypto_box_beforenm
 from bleak import BleakClient, BleakError
+from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
 
 from .const import NukiErrorException, NukiLockConst, NukiUltraConst, NukiOpenerConst, NukiConst, crcCalc
 
@@ -245,12 +246,8 @@ class NukiDevice:
                 #no need to create new client if it is the same ble_device
                 return
             self._ble_device = ble_device
-            self._client = BleakClient(ble_device, timeout=self.connection_timeout)
-        else:
-            self._client = BleakClient(
-                BLEDevice(address=self._address, details=None, name=self._name, rssi=self.rssi),
-                timeout=self.connection_timeout
-            )
+        elif not self._ble_device:
+             self._ble_device = BLEDevice(address=self._address, details=None, name=self._name, rssi=self.rssi)
 
     async def _notification_handler(self, sender: BleakGATTCharacteristic, data):
         try:
@@ -398,12 +395,18 @@ class NukiDevice:
 
     async def connect(self):
         async with self._connect_lock:
-            if not self._client:
+            if not self._ble_device:
                 self.set_ble_device()
-            if self._client.is_connected:
+            if self._client and self._client.is_connected:
                 logger.info("Already connected")
                 return
-            await self._client.connect()
+
+            self._client = await establish_connection(
+                BleakClientWithServiceCache,
+                self._ble_device,
+                f"Nuki {self._address}"
+            )
+            
             if (not self._device_type or not self._const):
                 services = self._client.services
                 if services.get_characteristic(NukiOpenerConst.BLE_PAIRING_CHAR):
