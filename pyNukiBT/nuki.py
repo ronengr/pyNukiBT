@@ -9,7 +9,11 @@ from typing import Callable
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from bleak.backends.characteristic import BleakGATTCharacteristic
-from warnings import deprecated
+try:
+    from warnings import deprecated
+except ImportError:
+    def deprecated(_reason):
+        return lambda func: func
 
 import async_timeout
 
@@ -131,10 +135,15 @@ class NukiDevice:
 
     @property
     def is_battery_charging(self):
+        # Openers expose only the critical flag, so keep this boolean false.
+        if self._device_type == NukiConst.NukiDeviceType.OPENER:
+            return False
         return bool(self.last_state["critical_battery_state"] & 2)
 
     @property
     def battery_percentage(self):
+        if self._device_type == NukiConst.NukiDeviceType.OPENER:
+            return 0 if self.is_battery_critical else 100
         return ((self.last_state["critical_battery_state"] & 252) >> 2) * 2
 
     @property
